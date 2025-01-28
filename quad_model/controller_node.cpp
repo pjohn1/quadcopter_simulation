@@ -12,7 +12,7 @@ class ControllerNode : public rclcpp::Node
     private:
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr point_sub;
         rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr pose_sub;
-        rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr voltage_pub;
+        rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr velocity_pub;
 
         Eigen::Matrix<double,1,3> goal_pose;
         double x,y,z = 0.0;
@@ -62,9 +62,16 @@ class ControllerNode : public rclcpp::Node
                     Eigen::Matrix<double,1,3> pose_difference = goal_pose-pose;
                     double yaw_difference = angle_difference(goal_yaw,yaw);
                     
-                    std_msgs::msg::Float32MultiArray voltage_msg = std_msgs::msg::Float32MultiArray();
-                    voltage_msg.data = voltages_float;
-                    voltage_pub->publish(voltage_msg);
+                    Eigen::Matrix<double,1,3> control = kp*pose_difference;
+                    float yaw_control = kp_yaw * static_cast<float>(yaw_difference);
+
+                    std::vector<float> vel_float;
+                    for(auto &vel : control) { vel_float.push_back(static_cast<float>(vel));}
+                    vel_float.push_back(yaw_control);
+
+                    std_msgs::msg::Float32MultiArray vel_msg = std_msgs::msg::Float32MultiArray();
+                    vel_msg.data = vel_float;
+                    velocity_pub->publish(vel_msg);
 
                 }
 
@@ -72,7 +79,7 @@ class ControllerNode : public rclcpp::Node
 
             point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/clicked_point",1,point_callback);
             pose_sub = this->create_subscription<geometry_msgs::msg::Pose>("/quad_pose",1,pose_callback);
-            voltage_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/voltage_input",1);
+            velocity_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/velocities",1);
 
         }
 
