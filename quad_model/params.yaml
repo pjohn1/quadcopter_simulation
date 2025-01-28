@@ -1,0 +1,7 @@
+velocity_converter:
+  ros__parameters:
+    update_rate: 10.0
+
+physics_sim:
+  ros__parameters:
+    update_rate: 10.0

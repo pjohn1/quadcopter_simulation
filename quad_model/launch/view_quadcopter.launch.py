@@ -1,6 +1,10 @@
 from launch import LaunchDescription
 from launch.actions import GroupAction, TimerAction
 from launch_ros.actions import Node, PushRosNamespace
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
+from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 import os
 
@@ -19,6 +23,13 @@ def generate_launch_description():
         # Launch the robot_state_publisher
 
         # Map robot_state_publisher
+        DeclareLaunchArgument(
+            'params_file',
+            default_value=PathJoinSubstitution([
+                FindPackageShare('quad_model'), 'params.yaml'
+            ]),
+            description='params.yaml'
+        ),
 
         Node(
             package='tf2_ros',
@@ -40,12 +51,22 @@ def generate_launch_description():
             package='quad_model',
             executable='physics_sim',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
+            parameters = [LaunchConfiguration('params_file')],
             output='screen'
         ),
 
         Node(
             package='quad_model',
             executable='controller_node',
+            arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
+            parameters = [LaunchConfiguration('params_file')],
+            output='screen'
+        ),
+
+
+        Node(
+            package='quad_model',
+            executable='velocity_converter',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
             output='screen'
         ),

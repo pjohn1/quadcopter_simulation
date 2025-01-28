@@ -41,6 +41,9 @@ ament_target_dependencies(physics_sim rclcpp geometry_msgs tf2_ros)
 add_executable(physics_node physics_node.cpp)
 ament_target_dependencies(physics_node rclcpp std_msgs geometry_msgs Eigen3)
 
+add_executable(velocity_converter velocity_converter.cpp)
+ament_target_dependencies(velocity_converter rclcpp std_msgs Eigen3)
+
 add_executable(controller_node controller_node.cpp)
 ament_target_dependencies(controller_node rclcpp std_msgs geometry_msgs Eigen3)
 
@@ -51,5 +54,6 @@ ament_target_dependencies(controller_node rclcpp std_msgs geometry_msgs Eigen3)
 install(TARGETS physics_node DESTINATION lib/${PROJECT_NAME})
 install(TARGETS physics_sim DESTINATION lib/${PROJECT_NAME})
 install(TARGETS controller_node DESTINATION lib/${PROJECT_NAME})
+install(TARGETS velocity_converter DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

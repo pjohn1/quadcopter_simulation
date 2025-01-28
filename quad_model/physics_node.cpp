@@ -49,7 +49,7 @@ class ForcePubSub : public rclcpp::Node
                 
                 float Fz = forces.sum();  //upwards force is just sum of all the forces;
                 float Tx = d * (forces[0] + forces[3] - forces[1] - forces[2]); //roll (TL + BR) - (TR + BL)
-                float Ty = d * (forces[0] + forces[1] - forces[2] - forces[3]); //pitch (TL + TR) - (BL + BR)
+                float Ty = d * -(forces[0] + forces[1] - forces[2] - forces[3]); //pitch (TL + TR) - (BL + BR)
                 float Tz = (forces[0] + forces[2] - forces[1] - forces[3]); //yaw (TL + BR) - (TR + BL)
 
                 if (last_time.seconds() != 0.0)

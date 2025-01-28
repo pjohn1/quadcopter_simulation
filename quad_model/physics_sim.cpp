@@ -14,6 +14,9 @@ class PhysicsSim : public rclcpp::Node {
 public:
     PhysicsSim() : Node("physics_sim"), x(0.0), y(0.0), z(0.0), roll(0.0), pitch(0.0), yaw(0.0) {
         std::cout << "Physics Sim initialized" << std::endl;
+
+        this->declare_parameter<double>("update_rate", 10.0);
+        update_rate = this->get_parameter("update_rate").as_double();
         //Initialize Drone mass properties
 
         // Subscriber for forces and torques
@@ -28,7 +31,7 @@ public:
         
         // Timer for the simulation loop
         timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(100),  // 10 Hz update rate
+            std::chrono::milliseconds((int)round(1.0/update_rate*1000)),  // 10 Hz update rate
             std::bind(&PhysicsSim::update_pose, this));
     }
 
@@ -107,6 +110,7 @@ private:
     rclcpp::Time last_time;
     double mass;
     double dt;
+    double update_rate;
 
     // State variables
     double x, y, z = 0.0;           // Position
