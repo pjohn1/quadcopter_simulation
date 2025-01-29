@@ -87,10 +87,6 @@ class ControllerNode : public rclcpp::Node
             };
             this->declare_parameter<double>("kp", 0.01);
             kp = this->get_parameter("kp").as_double();
-            this->declare_parameter<double>("kd", 0.0);
-            kd = this->get_parameter("kd").as_double();
-            this->declare_parameter<double>("ki", 0.0);
-            ki = this->get_parameter("ki").as_double();
             point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/clicked_point",1,point_callback);
             pose_sub = this->create_subscription<geometry_msgs::msg::Pose>("/quad_pose",1,pose_callback);
             velocity_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/velocities",1);

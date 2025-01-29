@@ -4,6 +4,8 @@
 #include <Eigen/Dense>
 #include "drone_properties.hpp"
 
+#define g 9.81
+
 class ForcePubSub : public rclcpp::Node
 {
     private:
@@ -47,10 +49,12 @@ class ForcePubSub : public rclcpp::Node
 
                 Eigen::ArrayXd &forces = voltages;
                 
+                /* Body frame forces */
                 float Fz = forces.sum();  //upwards force is just sum of all the forces;
                 float Tx = d * (forces[0] + forces[3] - forces[1] - forces[2]); //roll (TL + BR) - (TR + BL)
                 float Ty = d * -(forces[0] + forces[1] - forces[2] - forces[3]); //pitch (TL + TR) - (BL + BR)
                 float Tz = (forces[0] + forces[2] - forces[1] - forces[3]); //yaw (TL + BR) - (TR + BL)
+                /**************************/
 
                 if (last_time.seconds() != 0.0)
                 {
@@ -61,7 +65,7 @@ class ForcePubSub : public rclcpp::Node
                     Eigen::Matrix<double,1,3> torques;
                     torques << Tx,Ty,Tz;
                     Eigen::Matrix<double,1,3> angular_velocity = torques * inertia_tensor.inverse();
-                    wx=angular_velocity[0];wy=angular_velocity[1];wz=angular_velocity[2];
+                    wx+=angular_velocity[0];wy+=angular_velocity[1];wz+=angular_velocity[2];
 
 
                     Eigen::Matrix<double,3,3> Rbn_next;
@@ -94,10 +98,13 @@ class ForcePubSub : public rclcpp::Node
 
                     Eigen::Matrix<double,3,1> Fb;
                     Fb << 0,0,Fz;
+                    Eigen::Matrix<double,3,1> Fg;
+                    //Fg acts in the inertial -z direction (will subtract)
+                    Fg << 0,0,mass*g;
 
-                    Eigen::Matrix<double,3,1> an = R*Fb/mass;//( (R*Fb) - Eigen::Matrix<double,3,1>(0.0,0.0,mass*9.81) )/mass; //inertial frame forces
+                    Eigen::Matrix<double,3,1> an = (R*Fb - Fg)/mass;
                     Eigen::Matrix<double,3,1> vn = an*dt; //linear velocity
-                    vx=vn[0];vy=vn[1];vz=vn[2];
+                    vx+=vn[0];vy+=vn[1];vz+=vn[2];
 
                     std::vector<double> double_vals = {vx,vy,vz,wx,wy,wz};
                     std::vector<float> msg_data;
@@ -109,8 +116,8 @@ class ForcePubSub : public rclcpp::Node
                     // std::cout << "vz:" << vz << std::endl;
                     // std::cout << "wx:" << wx << std::endl;
                     publisher_->publish(msg_pub);
-
                 }
+                
                 else { //assuming it starts on level ground
                     vz = forces.sum()/mass;
                     float msg_vz = static_cast<float>(vz);
