@@ -27,7 +27,7 @@ class VelocityConverter : public rclcpp::Node
         double yaw_new,pitch_new,roll_new = 0.0;
         double wx,wy,wz = 0.0;
 
-        double last_pitch_error = 0.0;
+        double last_w_error = 0.0;
         // const double dt=0.05; //20Hz
         double update_rate;
         double dt;
@@ -69,8 +69,8 @@ class VelocityConverter : public rclcpp::Node
                 Eigen::Quaterniond q2(msg.orientation.x,msg.orientation.y,msg.orientation.z,msg.orientation.w);
                 Eigen::Vector3d euler = q2.toRotationMatrix().eulerAngles(2,1,0);
                 yaw = euler[2];pitch=-euler[1];roll=euler[0];
-                // double diff_roll = roll_new-roll;double diff_pitch = pitch_new-pitch;double diff_yaw=yaw_new-yaw;
-                // wx = (diff_roll)/dt;wy=(diff_pitch)/dt;wz=(diff_yaw)/dt;
+                double diff_roll = roll_new-roll;double diff_pitch = pitch_new-pitch;double diff_yaw=yaw_new-yaw;
+                wx = (diff_roll)/dt;wy=-(diff_pitch)/dt;wz=(diff_yaw)/dt;
                 // roll=roll_new;yaw=yaw_new;pitch=pitch_new;
 
 
@@ -93,29 +93,37 @@ class VelocityConverter : public rclcpp::Node
                 // double vx_error = desired_vx - vx;
                 // double derror = (vx_error - last_vx_error)/dt;
                 // double desired_pitch = 3.0 * M_PI/180; //3 deg
-                double vx_error = desired_vx - vx;
+                // double vx_error = desired_vx - vx;
                 // double desired_pitch = std::asin(mass_prop->mass*vx_error/(f_i*convergence_time));
                 double desired_pitch = 5 * M_PI/180;
                 // double ddesired = derror*dt*sqrt(2)/mass_prop->distance_to_motor;
                 double pitch_error = desired_pitch - pitch;
-                double derror = (pitch_error - last_pitch_error) / dt;
+                // double derror = (pitch_error - last_pitch_error) / dt;
+
+                double desired_w = pitch_error/dt;
+                double error = desired_w - wy;
+                double derror = (error - last_w_error)/dt;
+                last_w_error = error;
+
+                std::cout<<"desired angular velocity: "<<desired_w<<" actual: "<<wy<<std::endl;
                 // double derror = (vx_error - last_vx_error);
-                last_pitch_error = pitch_error;
+                // last_pitch_error = pitch_error;
 
-                std::cout<<"desired pitch: "<<desired_pitch * 180/M_PI<<"actual pitch: "<<pitch * 180/M_PI<<std::endl;
+                // std::cout<<"desired pitch: "<<desired_pitch * 180/M_PI<<"actual pitch: "<<pitch * 180/M_PI<<std::endl;
 
-                double required_torque = mass_prop->inertia_tensor(1,1)*(pitch_error)/pow(convergence_time,2);
-                // double correction_torque = mass_prop->inertia_tensor(1,1)*(derror)/pow(convergence_time,2);
+                // double required_torque = mass_prop->inertia_tensor(1,1)*(pitch_error)/pow(convergence_time,2);
+                double required_torque = mass_prop->inertia_tensor(1,1)*error/convergence_time;
+                double correction_torque = mass_prop->inertia_tensor(1,1)*derror/convergence_time;
 
                 double f = required_torque/(2*mass_prop->distance_to_motor);
-                // double df = correction_torque/(2*mass_prop->distance_to_motor);
-                double f_new = kp_vx*f + kd_vx*derror;
+                double df = correction_torque/(2*mass_prop->distance_to_motor);
+                double f_new = kp_vx*f + kd_vx*df;
                 std::cout<< "p: "<<kp_vx*f<<"d: "<<kd_vx*derror<<std::endl;
 
                 // last_vx_error = vx_error;
 
                 
-                if (vx_error > 0.0)
+                if (error > 0.0)
                 {
                     forces[2]+=f_new;forces[3]+=f_new;
                     forces[0]-=f_new;forces[1]-=f_new; //need to subtract to maintain vertical force balance
