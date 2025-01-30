@@ -5,6 +5,8 @@
 #include "drone_properties.hpp"
 #include <iostream>
 
+#define MAX_PITCH 10*M_PI/180 //max pitch is 10 degrees 
+
 #define g 9.81
 
 /* This node takes a desired speed input and
@@ -88,6 +90,11 @@ class VelocityConverter : public rclcpp::Node
                 const double kd_vx = this->get_parameter("kd_vx").as_double();
                 double vx_error = desired_vx - vx;
                 double desired_pitch = std::asin(mass_prop->mass*vx_error/(f_i*convergence_time));
+                // if ( abs(desired_pitch) > MAX_PITCH )
+                // {
+                //     desired_pitch = desired_pitch/abs(desired_pitch) * MAX_PITCH;
+                // }
+
                 double pitch_error = desired_pitch - pitch;
 
                 double desired_w = pitch_error/dt;
@@ -116,16 +123,6 @@ class VelocityConverter : public rclcpp::Node
                     forces[0]+=abs(f_new);forces[1]+=abs(f_new);
                     forces[2]-=abs(f_new);forces[3]-=abs(f_new);
                 }
-                // double error = desired_vx - vx;
-                // double derror = error/dt;
-
-                // double force_x = mass_prop->mass * error/dt; //required force to get to this deltav
-                // fx = fz*sin(theta)
-
-
-
-
-
 
                 std::vector<float> forces_float;
                 for(auto &force : forces) {forces_float.push_back(static_cast<float>(force));}
@@ -140,7 +137,7 @@ class VelocityConverter : public rclcpp::Node
 
         this->declare_parameter<double>("update_rate", 10.0);
         update_rate = 1.0/this->get_parameter("update_rate").as_double();
-        this->declare_parameter<double>("kp_vx", 0.1);
+        this->declare_parameter<double>("kp_vx", 0.3);
         this->declare_parameter<double>("kd_vx",0.02);
         mass_prop = new Drone();
         velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",1,velocity_callback);
