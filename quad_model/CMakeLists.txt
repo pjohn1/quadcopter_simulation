@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.8)
 project(quad_model)
 
+set(CMAKE_C_COMPILER_LAUNCHER ccache)
+set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -42,7 +45,7 @@ add_executable(physics_node physics_node.cpp)
 ament_target_dependencies(physics_node rclcpp std_msgs geometry_msgs Eigen3)
 
 add_executable(velocity_converter velocity_converter.cpp)
-ament_target_dependencies(velocity_converter rclcpp std_msgs Eigen3)
+ament_target_dependencies(velocity_converter rclcpp std_msgs geometry_msgs Eigen3)
 
 add_executable(controller_node controller_node.cpp)
 ament_target_dependencies(controller_node rclcpp std_msgs geometry_msgs Eigen3)

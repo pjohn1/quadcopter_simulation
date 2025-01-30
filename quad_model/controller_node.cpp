@@ -37,7 +37,7 @@ class ControllerNode : public rclcpp::Node
             auto point_callback = [this](const geometry_msgs::msg::PointStamped &msg) -> void
             {
                 // goal_pose << msg.point.x, msg.point.y, msg.point.z;
-                goal_pose << 2.0,0.0,1.0;
+                goal_pose << 0.0,0.0,1.0;
                 goal_yaw = std::atan2(msg.point.y,msg.point.x);
                 std::cout << goal_yaw << std::endl;
                 initialized = true;
@@ -52,6 +52,7 @@ class ControllerNode : public rclcpp::Node
                     z = msg.position.z;
                     Eigen::Matrix<double,1,3> pose(x,y,z);
                     std::vector<double> velocities = {0.0,0.0,0.0,0.0};
+                    kp = this->get_parameter("kp").as_double();
                     //vx,vy,vz,yaw rate (CCW)
 
                     Eigen::Quaterniond q2(msg.orientation.x,msg.orientation.y,msg.orientation.z,msg.orientation.w);
@@ -85,8 +86,7 @@ class ControllerNode : public rclcpp::Node
                 }
 
             };
-            this->declare_parameter<double>("kp", 0.01);
-            kp = this->get_parameter("kp").as_double();
+            this->declare_parameter<double>("kp", 0.1);
             point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/clicked_point",1,point_callback);
             pose_sub = this->create_subscription<geometry_msgs::msg::Pose>("/quad_pose",1,pose_callback);
             velocity_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/velocities",1);

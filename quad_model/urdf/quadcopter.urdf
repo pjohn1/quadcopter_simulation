@@ -20,7 +20,7 @@
     <joint name="world_joint" type="prismatic">
         <parent link="map"/>
         <child link="base_link"/>
-        <origin xyz="0 0 0"/>
+        <origin xyz="0 0 1"/>
         <axis xyz="1 1 1"/> <!-- Motion along the Z-axis -->
         <limit lower="0" upper="10" effort="10" velocity="1"/>
     </joint>

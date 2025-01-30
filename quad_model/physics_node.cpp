@@ -13,7 +13,7 @@ class ForcePubSub : public rclcpp::Node
         rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr publisher_;
         Drone *mass_prop = new Drone();
 
-        rclcpp::Time last_time;
+        double last_time=0.0;
 
         Eigen::Matrix3d inertia_tensor;
         Eigen::Matrix<double,3,3> R3;
@@ -24,8 +24,8 @@ class ForcePubSub : public rclcpp::Node
         double dt;
 
         Eigen::Matrix<double,3,3> Rbn;
-        double wx,wy,wz;
-        double vx,vz,vy;           // Vertical velocity
+        double wx,wy,wz=0.0;
+        double vx,vz,vy=0.0;           // Vertical velocity
         
     public:
         rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr getPublisher(){ return publisher_; }
@@ -38,34 +38,37 @@ class ForcePubSub : public rclcpp::Node
                 const double d = mass_prop->distance_to_motor; //distance from center to rotor
                 const double mass = mass_prop->mass;
                 inertia_tensor = mass_prop->inertia_tensor;
-                rclcpp::Time t = this->get_clock()->now();
 
                 std::vector<float> v_ = msg.data;  //motors are TL TR BL BR
                 std::vector<double> v(v_.begin(),v_.end());
                 
                 Eigen::ArrayXd voltages = Eigen::Map<Eigen::ArrayXd>(v.data(), v.size());
                 // std::cout << voltages << std::endl;
-                for(auto &val : voltages) { val = k*std::pow(val,2); }
+                // for(auto &val : voltages) { val = k*std::pow(val,2); }
 
                 Eigen::ArrayXd &forces = voltages;
+                std::cout<<"Incoming forces: "<<forces<<std::endl;
                 
                 /* Body frame forces */
-                float Fz = forces.sum();  //upwards force is just sum of all the forces;
+                float Fz = forces.sum();  //upwards force in body frame is just sum of all the forces;
                 float Tx = d * (forces[0] + forces[3] - forces[1] - forces[2]); //roll (TL + BR) - (TR + BL)
-                float Ty = d * -(forces[0] + forces[1] - forces[2] - forces[3]); //pitch (TL + TR) - (BL + BR)
+                float Ty = d * (forces[2] + forces[3] - forces[0] - forces[1]); //pitch (BL + BR) - (TL + TR)
                 float Tz = (forces[0] + forces[2] - forces[1] - forces[3]); //yaw (TL + BR) - (TR + BL)
                 /**************************/
 
-                if (last_time.seconds() != 0.0)
+                if (last_time != 0.0)
                 {
-                    dt = t.seconds() - last_time.seconds();
 
                     /* Calculating attitude using first-order Rodrigues rotation formula*/
                     /* https://www.roboticsbook.org/S72_drone_actions.html#drone-kinematics */
-                    Eigen::Matrix<double,1,3> torques;
+                    dt = this->get_clock()->now().seconds() - last_time;
+                    Eigen::Matrix<double,3,1> torques;
                     torques << Tx,Ty,Tz;
-                    Eigen::Matrix<double,1,3> angular_velocity = torques * inertia_tensor.inverse();
+                    std::cout<<"Torques: "<<torques<<std::endl;
+                    Eigen::Matrix<double,3,1> angular_velocity = (inertia_tensor.inverse() * torques) * dt;
                     wx+=angular_velocity[0];wy+=angular_velocity[1];wz+=angular_velocity[2];
+                    Eigen::Matrix<double,1,3> w(wx,wy,wz);
+                    std::cout<<"angular velocities: "<< w << std::endl;
 
 
                     Eigen::Matrix<double,3,3> Rbn_next;
@@ -77,6 +80,8 @@ class ForcePubSub : public rclcpp::Node
                     double yaw_angle = std::atan2(Rbn(1,0),Rbn(0,0)); //xx/xy
                     double pitch_angle = std::atan2(-Rbn(2,0),std::sqrt(std::pow(Rbn(2,1),2) + std::pow(Rbn(2,2),2) )); //zz/zx
                     double roll_angle = std::atan2(Rbn(2,1),Rbn(2,2)); //zz/zy
+
+                    std::cout<<"Pitch angle: "<<pitch_angle<<std::endl;
 
                     //pitch is increasing from 
                     // std::cout<<pitch_angle<<std::endl;
@@ -93,18 +98,23 @@ class ForcePubSub : public rclcpp::Node
                           0, std::cos(roll_angle), -std::sin(roll_angle),
                           0, std::sin(roll_angle), std::cos(roll_angle);
                     
-                    R = R3*R2*R1;
+                    R = R3*R2*R1; //convert body attitude to inertial frame
                     // std::cout<<R3<<R2<<R1<<std::endl;
 
                     Eigen::Matrix<double,3,1> Fb;
                     Fb << 0,0,Fz;
-                    Eigen::Matrix<double,3,1> Fg;
+                    Eigen::Matrix<double,3,1> Fo;
                     //Fg acts in the inertial -z direction (will subtract)
-                    Fg << 0,0,mass*g;
+                    //assume drone is essentially rectangular cross section
+                    //gonna assume constant cross section bc small angles and yeah
+                    double drag = 0;//1/2.0 * mass_prop->cd * 1.225 * .005 * pow(vx,2);
+                    Fo << drag,0,mass*g;
 
-                    Eigen::Matrix<double,3,1> an = (R*Fb - Fg)/mass;
-                    Eigen::Matrix<double,3,1> vn = an*dt; //linear velocity
-                    vx+=vn[0];vy+=vn[1];vz+=vn[2];
+                    Eigen::Matrix<double,3,1> dvn = dt/mass * ( (R*Fb - Fo) ); //change in velocity
+                    std::cout<<"difference between force & gravity: "<<(R*Fb-Fo)[2]<<std::endl;
+                    std::cout<<"current x velocity: "<<vx<<std::endl;
+                    std::cout<<"change in x velocity: "<<dvn[0]<<std::endl;
+                    vx+=dvn[0];vy+=dvn[1];vz+=dvn[2];
 
                     std::vector<double> double_vals = {vx,vy,vz,wx,wy,wz};
                     std::vector<float> msg_data;
@@ -112,22 +122,22 @@ class ForcePubSub : public rclcpp::Node
 
                     std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
                     msg_pub.data = msg_data;
-                    // std::cout << "vx:" << vx << std::endl;
-                    // std::cout << "vz:" << vz << std::endl;
-                    // std::cout << "wx:" << wx << std::endl;
                     publisher_->publish(msg_pub);
+                    last_time = this->get_clock()->now().seconds();
+                    
                 }
-                
+
                 else { //assuming it starts on level ground
-                    vz = forces.sum()/mass;
+                    // vz = forces.sum() - mass*g;
+                    vz=0.0;
                     float msg_vz = static_cast<float>(vz);
                     std::vector<float> msg_data = {0,0,msg_vz,0,0,0};
                     std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
                     msg_pub.data = msg_data;
                     publisher_->publish(msg_pub);
+                    last_time = this->get_clock()->now().seconds();
 
                 }
-                last_time = t;
             };
             Rbn << 1,0,0,0,1,0,0,0,1;
             subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("voltage_input",1,voltage_callback);

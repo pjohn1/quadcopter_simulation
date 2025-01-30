@@ -1,8 +1,11 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 #include <Eigen/Dense>
 #include "drone_properties.hpp"
 #include <iostream>
+
+#define g 9.81
 
 /* This node takes a desired speed input and
  calculates the corresponding motor forces
@@ -15,9 +18,21 @@ class VelocityConverter : public rclcpp::Node
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr velocity_subscriber;
         rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr voltage_publisher;
         std::shared_ptr<rclcpp::AsyncParametersClient> parameter_client_;
-        double vx,vy,vz,yaw_rate;
+        rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr pose_sub;
+
+        double desired_vx,desired_vy,desired_vz,desired_yaw_rate; //desired values
+        double x,y,z = 0.0;
+        double vx,vy,vz,yaw_rate = 0.0;
+        double yaw,pitch,roll = 0.0;
+        double yaw_new,pitch_new,roll_new = 0.0;
+        double wx,wy,wz = 0.0;
+
+        double last_pitch_error = 0.0;
         // const double dt=0.05; //20Hz
+        double update_rate;
         double dt;
+        double last_time;
+        bool initialized = false;
         Drone *mass_prop;
 
     public:
@@ -26,63 +41,120 @@ class VelocityConverter : public rclcpp::Node
     {
         auto velocity_callback = [this](const std_msgs::msg::Float32MultiArray &msg) -> void
         {
-            vx=msg.data[0];vy=msg.data[1];vz=msg.data[2];yaw_rate=msg.data[3];
-            std::vector<float> forces = {0.0,0.0,0.0,0.0};
-
-            double force_x = mass_prop->inertia_tensor(0,0) * vx / (2 * dt * pow(mass_prop->distance_to_motor,2) ); //per prop (assuming two prop)
-            //inertia_tensor is symmetric so can just use corresponding principal axis
-            double force_y = mass_prop->inertia_tensor(1,1) * vy / (2 * dt * pow(mass_prop->distance_to_motor,2) ); //per prop (assuming two prop)
-            double force_z = mass_prop->mass*vz/(4 * dt); //per propeller (assuming two propellors)
-            double force_yaw = mass_prop->inertia_tensor(2,2) * yaw_rate / (2*dt); //per prop
-
-            if (vx > 0.0)
-            {
-                forces[2] += force_x;
-                forces[3] += force_x;
-            }
-            else {
-                forces[0] += abs(force_x);
-                forces[1] += abs(force_x);
-            }
-
-            if (vy > 0.0)
-            {
-                forces[1] += force_y;
-                forces[2] += force_y;
-            }
-            else {
-                forces[0] += abs(force_y);
-                forces[3] += abs(force_y);
-            }
-
-            // if (yaw_rate > 0.0)
-            // {
-            //     forces[0] += force_yaw;
-            //     forces[2] += force_yaw;
-
-            // }
-            // else {
-            //     forces[1] += force_yaw;
-            //     forces[3] += force_yaw;
-            // }
-
-
-            for (auto &f : forces) { f+= force_z;}
-
-            std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
-            msg_pub.data = forces;
-            std::cout<<std::endl;
-            std::cout<<"forces:"<<forces[0]<<std::endl;
-            std::cout<<"forces:"<<forces[1]<<std::endl;
-            std::cout<<"forces:"<<forces[2]<<std::endl;
-            std::cout<<"forces:"<<forces[3]<<std::endl;
-            voltage_publisher->publish(msg_pub);
+            desired_vx=msg.data[0];desired_vy=msg.data[1];desired_vz=msg.data[2];desired_yaw_rate=msg.data[3];
             
+            if (!initialized)
+            {
+                last_time = this->get_clock()->now().seconds();
+            }
+            initialized=true;
         };
+
+        auto pose_callback = [this](const geometry_msgs::msg::Pose &msg) -> void
+        {
+            if (initialized)
+            {
+                double x_new = msg.position.x;
+                double y_new = msg.position.y;
+                double z_new = msg.position.z;
+                Eigen::Matrix<double,1,3> pose(x,y,z);
+                std::vector<double> forces = {0.0,0.0,0.0,0.0};
+                //vx,vy,vz,yaw rate (CCW)
+                dt = this->get_clock()->now().seconds() - last_time;
+                std::cout<<"dt: "<<dt<<std::endl;
+                vx = (x_new-x)/dt;vy=(y_new-y)/dt;vz=(z_new-z)/dt;
+                x=x_new;y=y_new;z=z_new;
+
+
+                Eigen::Quaterniond q2(msg.orientation.x,msg.orientation.y,msg.orientation.z,msg.orientation.w);
+                Eigen::Vector3d euler = q2.toRotationMatrix().eulerAngles(2,1,0);
+                yaw = euler[2];pitch=-euler[1];roll=euler[0];
+                // double diff_roll = roll_new-roll;double diff_pitch = pitch_new-pitch;double diff_yaw=yaw_new-yaw;
+                // wx = (diff_roll)/dt;wy=(diff_pitch)/dt;wz=(diff_yaw)/dt;
+                // roll=roll_new;yaw=yaw_new;pitch=pitch_new;
+
+
+                double kp = this->get_parameter("kp").as_double();
+
+                // vz control
+                // required mg is 0.7848N or 0.1962 from each motor
+                double vz_error = desired_vz - vz;
+                double f_i = mass_prop->mass/std::cos(pitch) * (vz_error/(update_rate) + g); //Fz formula
+                std::cout<<"vz error: "<<vz_error<<std::endl;
+                std::cout<<"force correction: "<<f_i<<std::endl;
+
+                for (auto &force : forces) { force+=f_i/4; }
+
+                double convergence_time = update_rate;
+
+                //vx controller
+                const double kp_vx = this->get_parameter("kp_vx").as_double(); // v = wr = sqrt(2)/2 * d * w
+                const double kd_vx = this->get_parameter("kd_vx").as_double();
+                // double vx_error = desired_vx - vx;
+                // double derror = (vx_error - last_vx_error)/dt;
+                // double desired_pitch = 3.0 * M_PI/180; //3 deg
+                double vx_error = desired_vx - vx;
+                // double desired_pitch = std::asin(mass_prop->mass*vx_error/(f_i*convergence_time));
+                double desired_pitch = 5 * M_PI/180;
+                // double ddesired = derror*dt*sqrt(2)/mass_prop->distance_to_motor;
+                double pitch_error = desired_pitch - pitch;
+                double derror = (pitch_error - last_pitch_error) / dt;
+                // double derror = (vx_error - last_vx_error);
+                last_pitch_error = pitch_error;
+
+                std::cout<<"desired pitch: "<<desired_pitch * 180/M_PI<<"actual pitch: "<<pitch * 180/M_PI<<std::endl;
+
+                double required_torque = mass_prop->inertia_tensor(1,1)*(pitch_error)/pow(convergence_time,2);
+                // double correction_torque = mass_prop->inertia_tensor(1,1)*(derror)/pow(convergence_time,2);
+
+                double f = required_torque/(2*mass_prop->distance_to_motor);
+                // double df = correction_torque/(2*mass_prop->distance_to_motor);
+                double f_new = kp_vx*f + kd_vx*derror;
+                std::cout<< "p: "<<kp_vx*f<<"d: "<<kd_vx*derror<<std::endl;
+
+                // last_vx_error = vx_error;
+
+                
+                if (vx_error > 0.0)
+                {
+                    forces[2]+=f_new;forces[3]+=f_new;
+                    forces[0]-=f_new;forces[1]-=f_new; //need to subtract to maintain vertical force balance
+                }
+                else
+                {
+                    forces[0]+=abs(f_new);forces[1]+=abs(f_new);
+                    forces[2]-=abs(f_new);forces[3]-=abs(f_new);
+                }
+                // double error = desired_vx - vx;
+                // double derror = error/dt;
+
+                // double force_x = mass_prop->mass * error/dt; //required force to get to this deltav
+                // fx = fz*sin(theta)
+
+
+
+
+
+
+                std::vector<float> forces_float;
+                for(auto &force : forces) {forces_float.push_back(static_cast<float>(force));}
+
+                std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
+                msg_pub.data = forces_float;
+                voltage_publisher->publish(msg_pub);
+                last_time = this->get_clock()->now().seconds();
+            }
+        };
+
+
         this->declare_parameter<double>("update_rate", 10.0);
-        dt = 1.0/this->get_parameter("update_rate").as_double();
+        update_rate = 1.0/this->get_parameter("update_rate").as_double();
+        this->declare_parameter<double>("kp", 1.0);
+        this->declare_parameter<double>("kp_vx", 0.1);
+        this->declare_parameter<double>("kd_vx",0.0);
         mass_prop = new Drone();
         velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",1,velocity_callback);
+        pose_sub = this->create_subscription<geometry_msgs::msg::Pose>("/quad_pose",1,pose_callback);
         voltage_publisher = this->create_publisher<std_msgs::msg::Float32MultiArray>("/voltage_input",1);
         parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(this, "source_node");
     }
@@ -97,3 +169,27 @@ int main(int argc, char* argv[])
     rclcpp::shutdown();
     return 0;
 }
+
+
+/***TORQUE STUFF */
+
+// // double desired_pitch = std::asin(mass_prop->mass*vx_error/(f_i*convergence_time)); //desired roll to reach velocity in one timestep
+// // double dpitch = 
+// double desired_pitch = vx_error*dt*sqrt(2)/mass_prop->distance_to_motor;
+// double ddesired = derror*dt*sqrt(2)/mass_prop->distance_to_motor;
+
+// // double control_law = kp_vx*desired_pitch;
+// std::cout<<"desired pitch: "<<desired_pitch<<std::endl;
+// double required_torque = mass_prop->inertia_tensor(1,1)*(desired_pitch)/pow(convergence_time,2);
+// double drequired_torque = mass_prop->inertia_tensor(1,1)*(ddesired)/pow(convergence_time,2);
+// std::cout<<"required torque: "<<required_torque<<std::endl;
+// //no need to use angle wrapping because the angle should always remain in quadrant 1/2
+// double f_new = abs(required_torque)/(2*mass_prop->distance_to_motor);
+// double df = abs(drequired_torque)/(2*mass_prop->distance_to_motor);
+// f_new = kp_vx*f_new + kd_vx*df;
+// last_vx_error = vx_error;
+// double f_new = kp_vx*vx_error + kd_vx*derror;
+// std::cout<<"P control: "<<kp_vx*vx_error<<std::endl;
+// std::cout<<"D control: "<<kd_vx*derror<<std::endl;
+
+// last_vx_error = vx_error;
