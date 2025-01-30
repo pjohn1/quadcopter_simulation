@@ -71,10 +71,6 @@ class VelocityConverter : public rclcpp::Node
                 yaw = euler[2];pitch=-euler[1];roll=euler[0];
                 double diff_roll = roll_new-roll;double diff_pitch = pitch_new-pitch;double diff_yaw=yaw_new-yaw;
                 wx = (diff_roll)/dt;wy=-(diff_pitch)/dt;wz=(diff_yaw)/dt;
-                // roll=roll_new;yaw=yaw_new;pitch=pitch_new;
-
-
-                double kp = this->get_parameter("kp").as_double();
 
                 // vz control
                 // required mg is 0.7848N or 0.1962 from each motor
@@ -90,15 +86,9 @@ class VelocityConverter : public rclcpp::Node
                 //vx controller
                 const double kp_vx = this->get_parameter("kp_vx").as_double(); // v = wr = sqrt(2)/2 * d * w
                 const double kd_vx = this->get_parameter("kd_vx").as_double();
-                // double vx_error = desired_vx - vx;
-                // double derror = (vx_error - last_vx_error)/dt;
-                // double desired_pitch = 3.0 * M_PI/180; //3 deg
-                // double vx_error = desired_vx - vx;
-                // double desired_pitch = std::asin(mass_prop->mass*vx_error/(f_i*convergence_time));
-                double desired_pitch = 5 * M_PI/180;
-                // double ddesired = derror*dt*sqrt(2)/mass_prop->distance_to_motor;
+                double vx_error = desired_vx - vx;
+                double desired_pitch = std::asin(mass_prop->mass*vx_error/(f_i*convergence_time));
                 double pitch_error = desired_pitch - pitch;
-                // double derror = (pitch_error - last_pitch_error) / dt;
 
                 double desired_w = pitch_error/dt;
                 double error = desired_w - wy;
@@ -106,12 +96,7 @@ class VelocityConverter : public rclcpp::Node
                 last_w_error = error;
 
                 std::cout<<"desired angular velocity: "<<desired_w<<" actual: "<<wy<<std::endl;
-                // double derror = (vx_error - last_vx_error);
-                // last_pitch_error = pitch_error;
 
-                // std::cout<<"desired pitch: "<<desired_pitch * 180/M_PI<<"actual pitch: "<<pitch * 180/M_PI<<std::endl;
-
-                // double required_torque = mass_prop->inertia_tensor(1,1)*(pitch_error)/pow(convergence_time,2);
                 double required_torque = mass_prop->inertia_tensor(1,1)*error/convergence_time;
                 double correction_torque = mass_prop->inertia_tensor(1,1)*derror/convergence_time;
 
@@ -119,8 +104,6 @@ class VelocityConverter : public rclcpp::Node
                 double df = correction_torque/(2*mass_prop->distance_to_motor);
                 double f_new = kp_vx*f + kd_vx*df;
                 std::cout<< "p: "<<kp_vx*f<<"d: "<<kd_vx*derror<<std::endl;
-
-                // last_vx_error = vx_error;
 
                 
                 if (error > 0.0)
@@ -157,9 +140,8 @@ class VelocityConverter : public rclcpp::Node
 
         this->declare_parameter<double>("update_rate", 10.0);
         update_rate = 1.0/this->get_parameter("update_rate").as_double();
-        this->declare_parameter<double>("kp", 1.0);
         this->declare_parameter<double>("kp_vx", 0.1);
-        this->declare_parameter<double>("kd_vx",0.0);
+        this->declare_parameter<double>("kd_vx",0.02);
         mass_prop = new Drone();
         velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",1,velocity_callback);
         pose_sub = this->create_subscription<geometry_msgs::msg::Pose>("/quad_pose",1,pose_callback);

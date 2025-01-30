@@ -37,7 +37,7 @@ class ControllerNode : public rclcpp::Node
             auto point_callback = [this](const geometry_msgs::msg::PointStamped &msg) -> void
             {
                 // goal_pose << msg.point.x, msg.point.y, msg.point.z;
-                goal_pose << 0.0,0.0,1.0;
+                goal_pose << 1.0,0.0,1.0;
                 goal_yaw = std::atan2(msg.point.y,msg.point.x);
                 std::cout << goal_yaw << std::endl;
                 initialized = true;
