@@ -3,6 +3,7 @@
 #include <cmath>
 #include <Eigen/Dense>
 #include "drone_properties.hpp"
+#include "rotation_matrix.hpp"
 
 #define g 9.81
 
@@ -16,16 +17,16 @@ class ForcePubSub : public rclcpp::Node
         double last_time=0.0;
 
         Eigen::Matrix3d inertia_tensor;
-        Eigen::Matrix<double,3,3> R3;
-        Eigen::Matrix<double,3,3> R2;
-        Eigen::Matrix<double,3,3> R1;
-        Eigen::Matrix<double,3,3> R; //rotation matrix from inertial to body frame
         double mass;
         double dt;
 
         Eigen::Matrix<double,3,3> Rbn;
         double wx,wy,wz=0.0;
         double vx,vz,vy=0.0;           // Vertical velocity
+
+        Eigen::Matrix<double,3,3> R;
+        RotationMatrix *rotate;
+        
         
     public:
         rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr getPublisher(){ return publisher_; }
@@ -34,7 +35,6 @@ class ForcePubSub : public rclcpp::Node
             auto voltage_callback = [this](std_msgs::msg::Float32MultiArray msg) -> void
             {
                 // std::cout<<"received voltage"<<std::endl;
-                const double k = 1.0; //thrust coefficient
                 const double d = mass_prop->distance_to_motor; //distance from center to rotor
                 const double mass = mass_prop->mass;
                 inertia_tensor = mass_prop->inertia_tensor;
@@ -51,16 +51,15 @@ class ForcePubSub : public rclcpp::Node
                 
                 /* Body frame forces */
                 float Fz = forces.sum();  //upwards force in body frame is just sum of all the forces;
-                float Tx = d * (forces[0] + forces[3] - forces[1] - forces[2]); //roll (TL + BR) - (TR + BL)
+                float Tx = d * (forces[1] + forces[2] - forces[0] - forces[3]); //roll (TL + BR) - (TR + BL)
                 float Ty = d * (forces[2] + forces[3] - forces[0] - forces[1]); //pitch (BL + BR) - (TL + TR)
                 float Tz = (forces[0] + forces[2] - forces[1] - forces[3]); //yaw (TL + BR) - (TR + BL)
                 /**************************/
 
                 if (last_time != 0.0)
                 {
-
                     /* Calculating attitude using first-order Rodrigues rotation formula*/
-                    /* https://www.roboticsbook.org/S72_drone_actions.html#drone-kinematics */
+                    /* https://www.roboticsbook.org/S72_drone_actions.html#drone-kinematics */        
                     dt = this->get_clock()->now().seconds() - last_time;
                     Eigen::Matrix<double,3,1> torques;
                     torques << Tx,Ty,Tz;
@@ -79,26 +78,13 @@ class ForcePubSub : public rclcpp::Node
                     //first column -> pitch angle;second ->roll angle;third->yaw angle;
                     double yaw_angle = std::atan2(Rbn(1,0),Rbn(0,0)); //xx/xy
                     double pitch_angle = std::atan2(-Rbn(2,0),std::sqrt(std::pow(Rbn(2,1),2) + std::pow(Rbn(2,2),2) )); //zz/zx
-                    double roll_angle = std::atan2(Rbn(2,1),Rbn(2,2)); //zz/zy
+                    double roll_angle = -std::atan2(Rbn(1,2),Rbn(2,2)); //zy/zz
 
-                    std::cout<<"Pitch angle: "<<pitch_angle<<std::endl;
+                    std::cout<<"Roll angle: "<<roll_angle<<std::endl;
 
                     //pitch is increasing from 
                     // std::cout<<pitch_angle<<std::endl;
 
-                    R3 << std::cos(yaw_angle), -std::sin(yaw_angle), 0,
-                          std::sin(yaw_angle), std::cos(yaw_angle), 0,
-                          0, 0, 1;
-                    
-                    R2 << std::cos(pitch_angle), 0, std::sin(pitch_angle),
-                          0, 1, 0,
-                          -std::sin(pitch_angle), 0, std::cos(pitch_angle);
-                    
-                    R1 << 1, 0, 0,
-                          0, std::cos(roll_angle), -std::sin(roll_angle),
-                          0, std::sin(roll_angle), std::cos(roll_angle);
-                    
-                    R = R3*R2*R1; //convert body attitude to inertial frame
                     // std::cout<<R3<<R2<<R1<<std::endl;
 
                     Eigen::Matrix<double,3,1> Fb;
@@ -110,12 +96,13 @@ class ForcePubSub : public rclcpp::Node
                     double drag = 0;//1/2.0 * mass_prop->cd * 1.225 * .005 * pow(vx,2);
                     Fo << drag,0,mass*g;
 
+                    rotate = new RotationMatrix(roll_angle,pitch_angle,yaw_angle);
+                    R = rotate->R;
+
                     Eigen::Matrix<double,3,1> dvn = dt/mass * ( (R*Fb - Fo) ); //change in velocity
-                    std::cout<<"difference between force & gravity: "<<(R*Fb-Fo)[2]<<std::endl;
-                    std::cout<<"current x velocity: "<<vx<<std::endl;
-                    std::cout<<"change in x velocity: "<<dvn[0]<<std::endl;
                     vx+=dvn[0];vy+=dvn[1];vz+=dvn[2];
 
+                    std::cout<<"vy: "<<vy<<" wx: "<<wx<<std::endl;
                     std::vector<double> double_vals = {vx,vy,vz,wx,wy,wz};
                     std::vector<float> msg_data;
                     for( auto &val : double_vals) { msg_data.push_back(static_cast<float>(val));}
@@ -145,6 +132,7 @@ class ForcePubSub : public rclcpp::Node
         }
         ~ForcePubSub(){
             delete mass_prop;
+            delete rotate;
         }
         
 };

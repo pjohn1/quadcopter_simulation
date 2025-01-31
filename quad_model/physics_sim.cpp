@@ -61,7 +61,7 @@ private:
                 y = y + vy*dt;
                 z = z + vz*dt;
 
-                roll = std::fmod(roll + wx*dt, 2*PI);
+                roll = std::fmod(roll + -wx*dt, 2*PI);
                 pitch = std::fmod(pitch + wy*dt, 2*PI);
                 yaw = std::fmod(yaw + wz*dt, 2*PI);
             }
@@ -97,6 +97,8 @@ private:
             pose.orientation.y = q.y();
             pose.orientation.z = q.z();
             pose.orientation.w = q.w();
+
+            // std::cout<<"x: "<<q.x()<<" y: "<<q.y()<<" z: "<<q.z()<<" w: "<<pose.orientation.w<<std::endl;
 
             pose_pub->publish(pose);
         }

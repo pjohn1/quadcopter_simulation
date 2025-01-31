@@ -36,8 +36,8 @@ class ControllerNode : public rclcpp::Node
 
             auto point_callback = [this](const geometry_msgs::msg::PointStamped &msg) -> void
             {
-                goal_pose << msg.point.x, msg.point.y, msg.point.z;
-                // goal_pose << 1.0,0.0,1.0;
+                // goal_pose << msg.point.x, msg.point.y, msg.point.z;
+                goal_pose << 1.0,1.0,1.0;
                 goal_yaw = std::atan2(msg.point.y,msg.point.x);
                 std::cout << goal_yaw << std::endl;
                 initialized = true;
@@ -63,8 +63,7 @@ class ControllerNode : public rclcpp::Node
                     std::cout<<std::endl;
                     std::cout<<"pose difference: "<<pose_difference<<std::endl;
                     double yaw_difference = angle_difference(goal_yaw,yaw);
-                    
-                    std::cout<<"kp:"<< kp <<std::endl;
+
                     Eigen::Matrix<double,1,3> control = kp*pose_difference;
 
                     float yaw_control = kp_yaw * static_cast<float>(yaw_difference);
@@ -77,7 +76,6 @@ class ControllerNode : public rclcpp::Node
                     std::cout<<"vy: "<< control[1] <<std::endl;
                     std::cout<<"vz: "<< control[2] <<std::endl;
                     std::cout<<"yaw_control: "<< vel_float[3] <<std::endl;
-
 
                     std_msgs::msg::Float32MultiArray vel_msg = std_msgs::msg::Float32MultiArray();
                     vel_msg.data = vel_float;
