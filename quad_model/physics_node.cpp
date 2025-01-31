@@ -80,7 +80,8 @@ class ForcePubSub : public rclcpp::Node
                     double pitch_angle = std::atan2(-Rbn(2,0),std::sqrt(std::pow(Rbn(2,1),2) + std::pow(Rbn(2,2),2) )); //zz/zx
                     double roll_angle = -std::atan2(Rbn(1,2),Rbn(2,2)); //zy/zz
 
-                    std::cout<<"Roll angle: "<<roll_angle<<std::endl;
+                    // std::cout<<"Roll angle: "<<roll_angle<<std::endl;
+                    std::cout<<"pitch: "<<pitch_angle<<" roll: "<<roll_angle<<std::endl;
 
                     //pitch is increasing from 
                     // std::cout<<pitch_angle<<std::endl;

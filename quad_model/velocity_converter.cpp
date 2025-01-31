@@ -39,7 +39,7 @@ class VelocityConverter : public rclcpp::Node
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr velocity_subscriber;
         rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr voltage_publisher;
         std::shared_ptr<rclcpp::AsyncParametersClient> parameter_client_;
-        rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr pose_sub;
+        rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr pose_sub;
 
         double desired_vx,desired_vy,desired_vz,desired_yaw_rate; //desired values
         double x,y,z = 0.0;
@@ -77,26 +77,31 @@ class VelocityConverter : public rclcpp::Node
             initialized=true;
         };
 
-        auto pose_callback = [this](const geometry_msgs::msg::Pose &msg) -> void
+        auto pose_callback = [this](const std_msgs::msg::Float32MultiArray &msg) -> void
         {
+            //stopped using quaternions because of inconsistent angle wrapping issues
+            // [x,y,z,roll,pitch,yaw]
             if (initialized)
             {
-                double x_new = msg.position.x;
-                double y_new = msg.position.y;
-                double z_new = msg.position.z;
-                Eigen::Matrix<double,1,3> pose(x,y,z);
+                double x_new = static_cast<double>(msg.data[0]);
+                double y_new = static_cast<double>(msg.data[1]);
+                double z_new = static_cast<double>(msg.data[2]);
+                double roll_new = -static_cast<double>(msg.data[3]);
+                double pitch_new = static_cast<double>(msg.data[4]);
+                double yaw_new = static_cast<double>(msg.data[5]);
                 std::vector<double> forces = {0.0,0.0,0.0,0.0};
 
                 dt = this->get_clock()->now().seconds() - last_time;
                 vx = (x_new-x)/dt;vy=(y_new-y)/dt;vz=(z_new-z)/dt;
                 x=x_new;y=y_new;z=z_new;
+                Eigen::Matrix<double,1,3> pose(x,y,z);
 
         
-                Eigen::Quaterniond q2(msg.orientation.x,msg.orientation.y,msg.orientation.z,msg.orientation.w);
-                Eigen::Vector3d euler = q2.toRotationMatrix().eulerAngles(2,1,0);
-                yaw_new = euler[2];pitch_new=-euler[1];roll_new=euler[0];
-                fixEuler(pitch_new);fixEuler(roll_new);
-                //make sure the wrapping is consistent
+                // Eigen::Quaterniond q2(msg.orientation.x,msg.orientation.y,msg.orientation.z,msg.orientation.w);
+                // Eigen::Vector3d euler = q2.toRotationMatrix().eulerAngles(2,1,0);
+                // yaw_new = euler[2];pitch_new=-euler[1];roll_new=euler[0];
+                // fixEuler(pitch_new);fixEuler(roll_new);
+                // //make sure the wrapping is consistent
 
                 double diff_roll = roll_new-roll;double diff_pitch = pitch_new-pitch;double diff_yaw=yaw_new-yaw;
                 wx = (diff_roll)/dt;wy=(diff_pitch)/dt;wz=(diff_yaw)/dt;
@@ -152,8 +157,9 @@ class VelocityConverter : public rclcpp::Node
                 double required_torque = mass_prop->inertia_tensor(1,1)*error/convergence_time;
                 double correction_torque = mass_prop->inertia_tensor(1,1)*derror/convergence_time;
 
-                double f = required_torque/(2*mass_prop->distance_to_motor);
-                double df = correction_torque/(2*mass_prop->distance_to_motor);
+                double f = required_torque/(4*mass_prop->distance_to_motor);
+                //divide by 4 because we add to necessary rotors and subtract from unnecessary rotors
+                double df = correction_torque/(4*mass_prop->distance_to_motor);
                 double f_new = kp_vx*f + kd_vx*df;
                 // std::cout<<"px: "<<kp_vx*f<<" dx: "<<kd_vx*df<<std::endl;
                 
@@ -198,8 +204,8 @@ class VelocityConverter : public rclcpp::Node
                 double required_torque_wx = mass_prop->inertia_tensor(0,0)*error_wx/convergence_time;
                 double correction_torque_wx = mass_prop->inertia_tensor(0,0)*derror_wx/convergence_time;
 
-                double f_x = required_torque_wx/(2*mass_prop->distance_to_motor);
-                double df_x = correction_torque_wx/(2*mass_prop->distance_to_motor);
+                double f_x = required_torque_wx/(4*mass_prop->distance_to_motor);
+                double df_x = correction_torque_wx/(4*mass_prop->distance_to_motor);
                 double f_new_x = kp_vy*f_x + kd_vy*df_x;
                 std::cout<< "p_y: "<<kp_vy*f_x<<" d_y: "<<kd_vy*df_x<<std::endl;
 
@@ -228,13 +234,13 @@ class VelocityConverter : public rclcpp::Node
 
         this->declare_parameter<double>("update_rate", 10.0);
         update_rate = 1.0/this->get_parameter("update_rate").as_double();
-        this->declare_parameter<double>("kp_vx", 0.1);
-        this->declare_parameter<double>("kd_vx",0.02);
-        this->declare_parameter<double>("kp_vy", 0.1);
-        this->declare_parameter<double>("kd_vy",0.02);
+        this->declare_parameter<double>("kp_vx", 0.3);
+        this->declare_parameter<double>("kd_vx",0.03);
+        this->declare_parameter<double>("kp_vy", 0.2);
+        this->declare_parameter<double>("kd_vy",0.03);
         mass_prop = new Drone();
         velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",1,velocity_callback);
-        pose_sub = this->create_subscription<geometry_msgs::msg::Pose>("/quad_pose",1,pose_callback);
+        pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",1,pose_callback);
         voltage_publisher = this->create_publisher<std_msgs::msg::Float32MultiArray>("/voltage_input",1);
         parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(this, "source_node");
     }

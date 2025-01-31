@@ -24,7 +24,7 @@ public:
             "/quadcopter/forces", 10,
             std::bind(&PhysicsSim::force_callback, this, std::placeholders::_1));
 
-        pose_pub = this->create_publisher<geometry_msgs::msg::Pose>("/quad_pose",1);
+        pose_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quad_pose",1);
 
         // TF broadcaster, calculations are done in body frame so need to transform to map frame
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
@@ -66,7 +66,7 @@ private:
                 yaw = std::fmod(yaw + wz*dt, 2*PI);
             }
 
-            last_time = t;
+            last_time = this->get_clock()->now();
             geometry_msgs::msg::TransformStamped transform;
             transform.header.stamp = this->get_clock()->now();
             transform.header.frame_id = "map";  // Parent frame
@@ -88,19 +88,20 @@ private:
             // Broadcast the transform
             tf_broadcaster_->sendTransform(transform);
 
-            geometry_msgs::msg::Pose pose = geometry_msgs::msg::Pose();
-            pose.position.x = x;
-            pose.position.y = y;
-            pose.position.z = z;
+            // geometry_msgs::msg::Pose pose = geometry_msgs::msg::Pose();
 
-            pose.orientation.x = q.x();
-            pose.orientation.y = q.y();
-            pose.orientation.z = q.z();
-            pose.orientation.w = q.w();
+            Eigen::Matrix<double,1,6> sim_vals(x,y,z,roll,pitch,yaw);
+            std::cout<<std::endl;
+            std::cout<<"sim outputs: "<<sim_vals<<std::endl;
 
-            // std::cout<<"x: "<<q.x()<<" y: "<<q.y()<<" z: "<<q.z()<<" w: "<<pose.orientation.w<<std::endl;
 
-            pose_pub->publish(pose);
+            std_msgs::msg::Float32MultiArray pose_msg = std_msgs::msg::Float32MultiArray();
+            std::vector<double> dbl_data = {x,y,z,roll,pitch,yaw};
+            std::vector<float> msg_data;
+            for(auto &vec : dbl_data) {msg_data.push_back(static_cast<float>(vec));}
+
+            pose_msg.data = msg_data;
+            pose_pub->publish(pose_msg);
         }
     }
 
@@ -122,7 +123,7 @@ private:
 
     // ROS 2 members
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr force_sub_;
-    rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr pose_pub;
+    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr pose_pub;
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     rclcpp::TimerBase::SharedPtr timer_;
 };

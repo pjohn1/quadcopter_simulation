@@ -11,11 +11,13 @@ class ControllerNode : public rclcpp::Node
 {
     private:
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr point_sub;
-        rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr pose_sub;
+        rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr pose_sub;
         rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr velocity_pub;
 
         Eigen::Matrix<double,1,3> goal_pose;
         double x,y,z = 0.0;
+        double last_x,last_y,last_z=0.0;
+        double last_time = 0.0;
         double yaw,pitch,roll=0.0;
         double goal_yaw = 0.0;
         bool initialized = false;
@@ -36,28 +38,32 @@ class ControllerNode : public rclcpp::Node
 
             auto point_callback = [this](const geometry_msgs::msg::PointStamped &msg) -> void
             {
-                // goal_pose << msg.point.x, msg.point.y, msg.point.z;
-                goal_pose << 1.0,1.0,1.0;
+                goal_pose << msg.point.x, msg.point.y, msg.point.z;
+                // goal_pose << 0.0,1.0,0.0;
+                // goal_pose << msg.point.x, msg.point.y, 0.0;
                 goal_yaw = std::atan2(msg.point.y,msg.point.x);
                 std::cout << goal_yaw << std::endl;
                 initialized = true;
             };
 
-            auto pose_callback = [this](const geometry_msgs::msg::Pose &msg) -> void
+            auto pose_callback = [this](const std_msgs::msg::Float32MultiArray &msg) -> void
             {
                 if (initialized)
                 {
-                    x = msg.position.x;
-                    y = msg.position.y;
-                    z = msg.position.z;
+                    // double dt = last_time - this->get_clock()->now().seconds();
+                    double x = static_cast<double>(msg.data[0]);
+                    double y = static_cast<double>(msg.data[1]);
+                    double z = static_cast<double>(msg.data[2]);
+                    double yaw = static_cast<double>(msg.data[5]);
                     Eigen::Matrix<double,1,3> pose(x,y,z);
+                    // double vx = (x-last_x)/dt;double vy=(y-last_y)/dt;double vz=(z-last_z)/dt;
                     std::vector<double> velocities = {0.0,0.0,0.0,0.0};
                     kp = this->get_parameter("kp").as_double();
                     //vx,vy,vz,yaw rate (CCW)
 
-                    Eigen::Quaterniond q2(msg.orientation.x,msg.orientation.y,msg.orientation.z,msg.orientation.w);
-                    Eigen::Vector3d euler = q2.toRotationMatrix().eulerAngles(2,1,0);
-                    yaw = euler[2];pitch=euler[1];roll=euler[0];
+                    // Eigen::Quaterniond q2(msg.orientation.x,msg.orientation.y,msg.orientation.z,msg.orientation.w);
+                    // Eigen::Vector3d euler = q2.toRotationMatrix().eulerAngles(2,1,0);
+                    // yaw = euler[2];pitch=euler[1];roll=euler[0];
 
                     Eigen::Matrix<double,1,3> pose_difference = goal_pose-pose;
                     std::cout<<std::endl;
@@ -82,11 +88,12 @@ class ControllerNode : public rclcpp::Node
                     velocity_pub->publish(vel_msg);
 
                 }
+                last_time = this->get_clock()->now().seconds();
 
             };
             this->declare_parameter<double>("kp", 0.1);
             point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/clicked_point",1,point_callback);
-            pose_sub = this->create_subscription<geometry_msgs::msg::Pose>("/quad_pose",1,pose_callback);
+            pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",1,pose_callback);
             velocity_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/velocities",1);
 
         }
