@@ -46,3 +46,16 @@ By understanding the desired angular velocity, the desired torque can be calcula
 $\tau_{req} = I_{yy} * \frac{\omega_{y,err}}{\Delta t}$
 
 PD control is implemented by scaling the force inputs to the motors.
+
+## Yaw Control
+
+Yaw control is very similar to pitch control and has the same structure while using angular velocity around the x axis.
+
+## Controller Superposition
+
+At the end of the day, all that the force output is really doing is vector addition. By calculating the z force required to maintain hover, all that is being changed is the torque. Thus, the forces can be superimposed as long as the overall thrust is maintained.
+
+For each controller, I:
+
+1. Calculate the control law and add it to the intended motors (i.e. if controlling vx in the positive direction, add control law to the back motors)
+2. Subtract the control law output from the motors that are not in the direction of control. This ensures that the previous control law is maintained as there is a net-zero addition in overall thrust.
