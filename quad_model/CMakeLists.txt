@@ -31,7 +31,7 @@ find_package(Eigen3 REQUIRED)
 find_package(gazebo REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
-add_executable(physics_sim physics_sim.cpp)
+add_executable(physics_sim sim/physics_sim.cpp)
 target_include_directories(physics_sim PRIVATE ${GAZEBO_INCLUDE_DIRS})
 target_link_libraries(physics_sim ${GAZEBO_LIBRARIES})
 ament_target_dependencies(physics_sim rclcpp geometry_msgs tf2_ros)
@@ -41,13 +41,13 @@ ament_target_dependencies(physics_sim rclcpp geometry_msgs tf2_ros)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(physics_node physics_node.cpp)
+add_executable(physics_node sim/physics_node.cpp)
 ament_target_dependencies(physics_node rclcpp std_msgs geometry_msgs Eigen3)
 
-add_executable(velocity_converter velocity_converter.cpp)
-ament_target_dependencies(velocity_converter rclcpp std_msgs geometry_msgs Eigen3)
+add_executable(velocity_controller controllers/velocity_controller.cpp)
+ament_target_dependencies(velocity_controller rclcpp std_msgs geometry_msgs Eigen3)
 
-add_executable(controller_node controller_node.cpp)
+add_executable(controller_node controllers/controller_node.cpp)
 ament_target_dependencies(controller_node rclcpp std_msgs geometry_msgs Eigen3)
 
 # add_executable(force_pub force_pub.cpp)
@@ -57,6 +57,6 @@ ament_target_dependencies(controller_node rclcpp std_msgs geometry_msgs Eigen3)
 install(TARGETS physics_node DESTINATION lib/${PROJECT_NAME})
 install(TARGETS physics_sim DESTINATION lib/${PROJECT_NAME})
 install(TARGETS controller_node DESTINATION lib/${PROJECT_NAME})
-install(TARGETS velocity_converter DESTINATION lib/${PROJECT_NAME})
+install(TARGETS velocity_controller DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

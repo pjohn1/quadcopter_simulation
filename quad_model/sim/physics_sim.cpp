@@ -4,7 +4,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
-#include "drone_properties.hpp"
+#include "../headers/drone_properties.hpp"
 #include <Eigen/Dense>
 #include <cmath>
 
@@ -91,8 +91,8 @@ private:
             // geometry_msgs::msg::Pose pose = geometry_msgs::msg::Pose();
 
             Eigen::Matrix<double,1,6> sim_vals(x,y,z,roll,pitch,yaw);
-            std::cout<<std::endl;
-            std::cout<<"sim outputs: "<<sim_vals<<std::endl;
+            // std::cout<<std::endl;
+            // std::cout<<"sim outputs: "<<sim_vals<<std::endl;
 
 
             std_msgs::msg::Float32MultiArray pose_msg = std_msgs::msg::Float32MultiArray();

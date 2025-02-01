@@ -2,9 +2,9 @@
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <Eigen/Dense>
-#include "drone_properties.hpp"
+#include "../headers/drone_properties.hpp"
 #include <iostream>
-#include "rotation_matrix.hpp"
+#include "../headers/rotation_matrix.hpp"
 
 #define MAX_PITCH 15*M_PI/180
 #define MAX_ROLL 15*M_PI/180
@@ -161,7 +161,7 @@ class VelocityConverter : public rclcpp::Node
                 //divide by 4 because we add to necessary rotors and subtract from unnecessary rotors
                 double df = correction_torque/(4*mass_prop->distance_to_motor);
                 double f_new = kp_vx*f + kd_vx*df;
-                // std::cout<<"px: "<<kp_vx*f<<" dx: "<<kd_vx*df<<std::endl;
+                std::cout<<"px: "<<kp_vx*f<<" dx: "<<kd_vx*df<<std::endl;
                 
                 if (error > 0.0)
                 {

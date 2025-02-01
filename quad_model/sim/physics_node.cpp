@@ -2,8 +2,8 @@
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <cmath>
 #include <Eigen/Dense>
-#include "drone_properties.hpp"
-#include "rotation_matrix.hpp"
+#include "../headers/drone_properties.hpp"
+#include "../headers/rotation_matrix.hpp"
 
 #define g 9.81
 
@@ -82,11 +82,6 @@ class ForcePubSub : public rclcpp::Node
 
                     // std::cout<<"Roll angle: "<<roll_angle<<std::endl;
                     std::cout<<"pitch: "<<pitch_angle<<" roll: "<<roll_angle<<std::endl;
-
-                    //pitch is increasing from 
-                    // std::cout<<pitch_angle<<std::endl;
-
-                    // std::cout<<R3<<R2<<R1<<std::endl;
 
                     Eigen::Matrix<double,3,1> Fb;
                     Fb << 0,0,Fz;

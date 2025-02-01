@@ -66,7 +66,7 @@ def generate_launch_description():
 
         Node(
             package='quad_model',
-            executable='velocity_converter',
+            executable='velocity_controller',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
             output='screen'
         ),
