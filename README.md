@@ -7,7 +7,7 @@ The goal of this project is to create a sandbox environment for me to practice d
 
 # Use of Generative AI
 
-There is no doubt that generative AI has become an incredible tool to aid in code generation. However, the goal of this project was for me to hone my coding skills. As such, generative AI was $\textbb{not}$ used for generating C++ code outside of the structure of the physics_sim.cpp file.
+There is no doubt that generative AI has become an incredible tool to aid in code generation. However, the goal of this project was for me to hone my coding skills. As such, generative AI was not used for generating C++ code outside of the structure of the physics_sim.cpp file.
 
 Generative AI aided in the implementation of:
 
