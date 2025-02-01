@@ -11,17 +11,5 @@ During my 16.30 (Feedback Control Systems) class at MIT, the final project was t
 
 ![flowchart](https://github.com/user-attachments/assets/72e4a0de-c771-4d85-a82d-be261a7b5fcf)
 
-# Low-Level Controller
+More about the controllers can be read in the controllers folder.
 
-The low-level controller is really just a node that houses three separate controllers whose outputs are added together to get individual motor forces.
-
-## Z control
-
-Vertical control is the most simple. Using the roll and pitch angles, the required vertical force is:
-
-![equation]([[https://latex.codecogs.com/svg.image?&space;F^N=(R_B^N)^{-1}(\frac{mv}{\Delta&space;t}&plus;mg)](https://latex.codecogs.com/svg.image?%20F%5EN=(R_B%5EN)%5E%7B-1%7D(%5Cfrac%7Bmv%7D%7B%5CDelta%20t%7D&plus;mg))](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D%20F%5EN=(R_B%5EN)%5E%7B-1%7D(%5Cfrac%7Bmv%7D%7B%5CDelta%20t%7D&plus;mg)))
-
-where v is the error between the desired vertical velocity and the actual vertical velocity;
-![equation](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D%5CDelta%20t) is the update rate. This ensures that the drone reaches the intended vertical velocity by the next frame so that the high-level controller can function accordingly.
-
-By understanding the vertical velocity that the drone needs to maintain hover or reach a certain altitude, this gives a baseline for how to control the pitch and roll.
