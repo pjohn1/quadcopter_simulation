@@ -53,7 +53,7 @@ Yaw control is very similar to pitch control and has the same structure while us
 
 ## Controller Superposition
 
-At the end of the day, all that the force output is really doing is vector addition. By calculating the z force required to maintain hover, all that is being changed is the torque. Thus, the forces can be superimposed as long as the overall thrust is maintained.
+At the end of the day, all that the force output is really doing is vector addition. By calculating the z force required to maintain hover, all that needs to be changed is the torque. Thus, the forces can be superimposed as long as the overall thrust is maintained.
 
 For each controller, I:
 
