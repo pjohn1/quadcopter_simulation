@@ -1,3 +1,9 @@
+# High-Level Controller
+
+The high-level controller is quite simple as most complexity is handled through the low-level controller.
+
+The current implementation is to track the velocity error and use PD control to scale this error and publish it to the low-level controller which is detailed in the next section.
+
 # Low-Level Controller
 
 The low-level controller is really just a node that houses three separate controllers whose outputs are added together to get individual motor forces.
