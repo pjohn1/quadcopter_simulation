@@ -39,7 +39,7 @@ What can be leveraged is that the vertical force must maintain constant or else 
 
 -> $\theta = arcsin(\frac{mv_x}{F_z^N\Delta t})$
 
-Of course, the domain of arcsin is $-1 \leq x \leq 1$ and so the desired roll angle is limited by the update rate of the function. Too fast of an update rate or too large of a velocity error will lead to a nan value. This is a limitation of the $v_x$ controller. Additionally, the pitch angle is bounded to a maximum angle to ensure drone stability.
+Of course, the domain of arcsin is $-1 \leq x \leq 1$ and so the desired roll angle is limited by the update rate of the function. Too fast of an update rate or too large of a velocity error will lead to a nan value. To handle this, I have a maximum pitch value that is utilized when the pitch angle is too large (indicated by a nan arcsin value).
 
 Because angular velocity is simply the change in angle over time, the desired pitch can be related to a desired pitch velocity by:
 
