@@ -6,12 +6,12 @@ from launch.substitutions import PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
-import os
 
 def generate_launch_description():
 
-    urdf_quad = '/mnt/c/Desktop/quadctrl/install/quad_model/share/quad_model/urdf/quadcopter.urdf'
-    urdf_map = '/mnt/c/Desktop/quadctrl/install/quad_model/share/quad_model/urdf/map.urdf'
+    urdf_quad = get_package_share_directory('quad_model')+'/urdf/quadcopter.urdf'
+    urdf_map = get_package_share_directory('quad_model')+'/urdf/map.urdf'
+
     with open(urdf_quad,'r') as quad_urdf:
         quad_desc = quad_urdf.read()
 
