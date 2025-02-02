@@ -4,13 +4,13 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://quad_model/meshes/scan3.obj" scale="2 2 2"/>
+        <mesh filename="package://quad_model/meshes/scan3.obj" scale="3 3 3"/>
       </geometry>
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://quad_model/meshes/scan3.obj" scale="2 2 2"/>
+        <mesh filename="package://quad_model/meshes/scan3.obj" scale="3 3 3"/>
       </geometry>
     </collision>
   </link>

@@ -80,6 +80,7 @@ class VelocityConverter : public rclcpp::Node
         auto pose_callback = [this](const std_msgs::msg::Float32MultiArray &msg) -> void
         {
             //stopped using quaternions because of inconsistent angle wrapping issues
+            //ie nonsingular vals (sometimes 0 rad would initialize to PI) causes subtraction issues
             // [x,y,z,roll,pitch,yaw]
             if (initialized)
             {
@@ -87,6 +88,7 @@ class VelocityConverter : public rclcpp::Node
                 double y_new = static_cast<double>(msg.data[1]);
                 double z_new = static_cast<double>(msg.data[2]);
                 double roll_new = -static_cast<double>(msg.data[3]);
+                // one of my frames is messed up but im too scared to touch the code lol
                 double pitch_new = static_cast<double>(msg.data[4]);
                 double yaw_new = static_cast<double>(msg.data[5]);
                 std::vector<double> forces = {0.0,0.0,0.0,0.0};
@@ -95,70 +97,68 @@ class VelocityConverter : public rclcpp::Node
                 vx = (x_new-x)/dt;vy=(y_new-y)/dt;vz=(z_new-z)/dt;
                 x=x_new;y=y_new;z=z_new;
                 Eigen::Matrix<double,1,3> pose(x,y,z);
-
-        
-                // Eigen::Quaterniond q2(msg.orientation.x,msg.orientation.y,msg.orientation.z,msg.orientation.w);
-                // Eigen::Vector3d euler = q2.toRotationMatrix().eulerAngles(2,1,0);
-                // yaw_new = euler[2];pitch_new=-euler[1];roll_new=euler[0];
-                // fixEuler(pitch_new);fixEuler(roll_new);
-                // //make sure the wrapping is consistent
-
+                //updating velocities and angular velocities
                 double diff_roll = roll_new-roll;double diff_pitch = pitch_new-pitch;double diff_yaw=yaw_new-yaw;
                 wx = (diff_roll)/dt;wy=(diff_pitch)/dt;wz=(diff_yaw)/dt;
                 yaw=yaw_new;pitch=pitch_new;roll=roll_new;
 
                 rotate = new RotationMatrix(roll,pitch,yaw);
                 R = rotate->R;
-                // std::cout<<R<<std::endl;
 
+                std::cout<<"roll: "<<roll<<" pitch: "<<pitch<<" yaw: "<<yaw<<std::endl;
                 // vz control
                 // required mg is 0.7848N or 0.1962 from each motor
                 double vz_error = desired_vz - vz;
                 double rhs = mass_prop->mass*(vz_error/update_rate+g);
-                Eigen::Matrix<double,3,1> F(0.0,0.0,rhs);
-                // double f_i = mass_prop->mass/std::cos(pitch) * (vz_error/(update_rate) + g); //Fz formula
-                std::cout<<"roll: "<<roll<<" pitch: "<<pitch<<" yaw: "<<yaw<<std::endl;
-                Eigen::Matrix<double,3,1> f_m = R.inverse() * F;
-                std::cout<<f_m<<std::endl<<std::endl;
-                double f_i = f_m(2,0);
-                for (auto &force : forces) { force+=f_i/4; }
+                // required force in inertial frame to minimize z error
 
-                double convergence_time = update_rate;
+                Eigen::Matrix<double,3,1> F(0.0,0.0,rhs);
+                Eigen::Matrix<double,3,1> f_m = R.inverse() * F;
+                // convert inertial frame required force to body frame
+                
+                double f_i = f_m(2,0); //Fz in the body frame
+                for (auto &force : forces) { force+=f_i/4; }
+                // assume equal contribution from each motor
+
+                double convergence_time = update_rate; //in case I want to change delta-t
 
                 //vx controller
-                const double kp_vx = this->get_parameter("kp_vx").as_double(); // v = wr = sqrt(2)/2 * d * w
+                const double kp_vx = this->get_parameter("kp_vx").as_double();
                 const double kd_vx = this->get_parameter("kd_vx").as_double();
                 double vx_error = desired_vx - vx;
                 std::cout<<"vx error: "<<vx_error<<std::endl;
+
                 double desired_pitch = std::asin(mass_prop->mass*vx_error/(f_i*convergence_time));
                 if ( abs(desired_pitch) > MAX_PITCH )
                 {
+                    //maintain directionality
                     desired_pitch = desired_pitch/abs(desired_pitch) * MAX_PITCH;
                 }
 
                 else if ( std::isnan(desired_pitch) )
                 {
+                    //if arcsin throws a nan value, the pitch is too high so just pitch max
                     desired_pitch = vx_error/abs(vx_error) * MAX_PITCH;
                 }
 
                 double pitch_error = desired_pitch - pitch;
-                // std::cout<<"desired pitch: "<<desired_pitch<<std::endl;
 
-                double desired_w = pitch_error/dt;
+                double desired_w = pitch_error/dt; //w = dtheta/dt for small dt
                 double error = desired_w - wy;
-                // std::cout<<"desired_w: "<<desired_w<<" wy: "<<error<<std::endl;
-                if (last_w_error != 0.0)
+
+                if (last_w_error != 0.0) //ensure last_error has been initialized
                 {
                     derror = (error - last_w_error)/dt;
-                    // std::cout<<"derror "<<derror<<std::endl;
                 }
                 last_w_error = error;
 
                 double required_torque = mass_prop->inertia_tensor(1,1)*error/convergence_time;
+                // required torque to reach desired angular velocity in convergence time
                 double correction_torque = mass_prop->inertia_tensor(1,1)*derror/convergence_time;
 
                 double f = required_torque/(4*mass_prop->distance_to_motor);
                 //divide by 4 because we add to necessary rotors and subtract from unnecessary rotors
+                //ie if f=+4, we add +1 to back rotors and subtract 1 from front so (2) - (-2) = 4
                 double df = correction_torque/(4*mass_prop->distance_to_motor);
                 double f_new = kp_vx*f + kd_vx*df;
                 std::cout<<"px: "<<kp_vx*f<<" dx: "<<kd_vx*df<<std::endl;
@@ -166,7 +166,7 @@ class VelocityConverter : public rclcpp::Node
                 if (error > 0.0)
                 {
                     forces[2]+=f_new;forces[3]+=f_new;
-                    forces[0]-=f_new;forces[1]-=f_new; //need to subtract to maintain vertical force balance
+                    forces[0]-=f_new;forces[1]-=f_new; //need to subtract to maintain force balance
                 }
                 else
                 {
@@ -175,11 +175,11 @@ class VelocityConverter : public rclcpp::Node
                 }
 
                 //vy controller
+                //same as vx, probably could all be put into a template but i like explicit code
                 const double kp_vy = this->get_parameter("kp_vy").as_double(); // v = wr = sqrt(2)/2 * d * w
                 const double kd_vy = this->get_parameter("kd_vy").as_double();
                 double vy_error = desired_vy - vy;
                 double desired_roll = std::asin(mass_prop->mass*vy_error/(f_i*convergence_time));
-                // double desired_roll = 5*M_PI/180;
                 if ( abs(desired_roll) > MAX_ROLL )
                 {
                     desired_roll = desired_roll/abs(desired_roll) * MAX_ROLL;
@@ -195,7 +195,7 @@ class VelocityConverter : public rclcpp::Node
 
                 double desired_wx = roll_error/dt;
                 double error_wx = desired_wx - wx;
-                if (last_wx_error != 0.0) //initialization causes issues sometimes
+                if (last_wx_error != 0.0)
                 {
                     derror_wx = (error_wx - last_wx_error)/dt;
                 }
@@ -232,12 +232,12 @@ class VelocityConverter : public rclcpp::Node
         };
 
 
-        this->declare_parameter<double>("update_rate", 10.0);
+        this->declare_parameter<double>("update_rate", 20.0);
         update_rate = 1.0/this->get_parameter("update_rate").as_double();
-        this->declare_parameter<double>("kp_vx", 0.3);
-        this->declare_parameter<double>("kd_vx",0.03);
-        this->declare_parameter<double>("kp_vy", 0.2);
-        this->declare_parameter<double>("kd_vy",0.03);
+        this->declare_parameter<double>("kp_vx", 0.1);
+        this->declare_parameter<double>("kd_vx",0.02);
+        this->declare_parameter<double>("kp_vy", 0.1);
+        this->declare_parameter<double>("kd_vy",0.02);
         mass_prop = new Drone();
         velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",1,velocity_callback);
         pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",1,pose_callback);
@@ -247,6 +247,7 @@ class VelocityConverter : public rclcpp::Node
     ~VelocityConverter()
     {
         delete rotate;
+        delete mass_prop;
     }
 };
 
@@ -259,27 +260,3 @@ int main(int argc, char* argv[])
     rclcpp::shutdown();
     return 0;
 }
-
-
-/***TORQUE STUFF */
-
-// // double desired_pitch = std::asin(mass_prop->mass*vx_error/(f_i*convergence_time)); //desired roll to reach velocity in one timestep
-// // double dpitch = 
-// double desired_pitch = vx_error*dt*sqrt(2)/mass_prop->distance_to_motor;
-// double ddesired = derror*dt*sqrt(2)/mass_prop->distance_to_motor;
-
-// // double control_law = kp_vx*desired_pitch;
-// std::cout<<"desired pitch: "<<desired_pitch<<std::endl;
-// double required_torque = mass_prop->inertia_tensor(1,1)*(desired_pitch)/pow(convergence_time,2);
-// double drequired_torque = mass_prop->inertia_tensor(1,1)*(ddesired)/pow(convergence_time,2);
-// std::cout<<"required torque: "<<required_torque<<std::endl;
-// //no need to use angle wrapping because the angle should always remain in quadrant 1/2
-// double f_new = abs(required_torque)/(2*mass_prop->distance_to_motor);
-// double df = abs(drequired_torque)/(2*mass_prop->distance_to_motor);
-// f_new = kp_vx*f_new + kd_vx*df;
-// last_vx_error = vx_error;
-// double f_new = kp_vx*vx_error + kd_vx*derror;
-// std::cout<<"P control: "<<kp_vx*vx_error<<std::endl;
-// std::cout<<"D control: "<<kd_vx*derror<<std::endl;
-
-// last_vx_error = vx_error;
