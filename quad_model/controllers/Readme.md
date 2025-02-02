@@ -14,7 +14,9 @@ Vertical control is the most simple. Using the roll and pitch angles, the requir
 
  $F^N = (R_B^N)^{-1}(\frac{mv}{\Delta t} + mg)$
 
-where v is the error between the desired vertical velocity and the actual vertical velocity;
+where v is the error between the desired vertical velocity and the actual vertical velocity
+
+$R_B^N$ is the rotation matrix from the body to the inertial frame based on the roll,pitch,yaw angles and a +x forward, +y left, +z up coordinate frame.
 
 $\Delta t$ is the controller update rate. This ensures that the drone reaches the intended vertical velocity by the next frame so that the high-level controller can function accordingly.
 
