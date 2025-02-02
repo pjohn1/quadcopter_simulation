@@ -28,7 +28,7 @@ The attitude calculation is done utlizing the Rodrigues' rotation formula which 
 
 This results in an SO(3) matrix and thus the columns correspond to the unit vectors of the x,y,z body frame axis.
 
-From here, the roll, pitch, and yaw angles are extracted
+From here, the roll, pitch, and yaw angles are extracted using simple trigonometry.
 
 # Inertial Frame Forces
 
