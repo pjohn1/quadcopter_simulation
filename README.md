@@ -30,3 +30,11 @@ The physics simulation is centered around the first principles dynamics of a qua
 https://www.roboticsbook.org/S70_drone_intro.html
 
 More information on how the physics were implemented can be found in the sim folder.
+
+# Next Steps
+
+I plan for this project to be an ongoing project that I can use to learn new controls skills. Currently, the next steps are:
+
+- Create an occupancy grid based on the 3D map model for path planning
+- Add sensors and control based on sensor fusion rather than raw pose extraction
+- Implement different control algorithms such as LQG and experiment with MPC
