@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# Please switch to master branch as a pull request has not been created yet to move the code here.
-=======
 # quadcopter_simulation v1.0
 Physics &amp; controls simulation of a quadcopter built from scratch using ROS2, RVIZ, and some 3d modeling from an iPhone camera
 
@@ -41,4 +38,3 @@ I plan for this project to be an ongoing project that I can use to learn new con
 - Create an occupancy grid based on the 3D map model for path planning
 - Add sensors and control based on sensor fusion rather than raw pose extraction
 - Implement different control algorithms such as LQG and experiment with MPC
->>>>>>> master
