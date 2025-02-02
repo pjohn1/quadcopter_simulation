@@ -15,6 +15,14 @@ Generative AI aided in the implementation of:
 - Launch file creation
 - Traceback debugging and code logic verification (i.e. "does this rotation matrix make sense for my coordinate frame?")
 
+# Video of Full Simulation with PD Control
+
+
+https://github.com/user-attachments/assets/ce64003c-4ca9-46bc-88f2-f4172d7cd03e
+
+
+(note: currently, there is no obstacle collision as there is no occupancy grid. This, along with obstacle avoidance, will be added in future versions)
+
 # Control Structure
 
 During my 16.30 (Feedback Control Systems) class at MIT, the final project was to control a DJI Tello drone. Our control variables were the velocity vectors and yaw rate. I wanted to replicate this in this project. Thus, the high-level control is centered around velocity vector input which is fed into a low-level controller that translates the velocity vectors into individual motor forces to control roll, pitch, and vertical acceleration. I found this approach to be much more intuitive as the velocity control can then just be based on the pose difference between the drone and the goal pose. In flowchart form, this control looks like:
