@@ -10,9 +10,9 @@ The drone is modeled as a quadcopter with four motors where the top-left and bot
 
 $F_z = \sum_{i=0}^3{f_i}$
 
-$\tau_x = d * (f_1 + f_2 - (f_0 + f_3)$
+$\tau_x = d * ( f_1 + f_2 - (f_0 + f_3) )$
 
-$\tau_y = d * (f_2 + f_3 - (f_0 + f_1)$
+$\tau_y = d * ( f_2 + f_3 - (f_0 + f_1) )$
 
 $\tau_z = f_0 + f_2 - (f+1 + f_3)$
 
