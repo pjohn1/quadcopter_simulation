@@ -47,9 +47,13 @@ $\tau_{req} = I_{yy} * \frac{\omega_{y,err}}{\Delta t}$
 
 PD control is implemented by scaling the force inputs to the motors.
 
+## Roll Control
+
+Roll control is very similar to pitch control and has the same structure while using angular velocity around the x axis.
+
 ## Yaw Control
 
-Yaw control is very similar to pitch control and has the same structure while using angular velocity around the x axis.
+Because the current goal is to simply reach a point on the map and not to get there with the correct orientation, no yaw control is implemented. When sensors are implemented, yaw control will be essential especially in the case of cameras.
 
 ## Controller Superposition
 
