@@ -1,0 +1,35 @@
+
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="${robot_name}">
+    <link name="map"/>
+    <!-- Base link -->
+    <link name="base_link">
+        <visual>
+            <inertial>
+                <mass value="1.0"/>
+                <origin xyz="0 0 0"/>
+                <inertia ixx="0.1" ixy="0.0" ixz="0.0" iyy="0.1" iyz="0.0" izz="0.1"/>
+            </inertial>
+            <geometry>
+                <mesh filename="package://quad_model/meshes/drone.obj" scale="0.1 0.1 0.1"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <!-- Prismatic Joint for Vertical Motion -->
+    <joint name="world_joint" type="prismatic">
+        <parent link="map"/>
+        <child link="base_link"/>
+        <origin xyz="0 0 1"/>
+        <axis xyz="1 1 1"/> <!-- Motion along the Z-axis -->
+        <limit lower="0" upper="10" effort="10" velocity="1"/>
+    </joint>
+
+    <gazebo>
+    <plugin name="custom_force_plugin" filename="libcustom_force_plugin.so">
+        <topic>/quadcopter/forces</topic>
+    </plugin>
+    </gazebo>
+
+</robot>
+
