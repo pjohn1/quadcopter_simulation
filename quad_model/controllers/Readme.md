@@ -6,7 +6,7 @@ The current implementation is to track the velocity error based on the pose diff
 
 # Low-Level Controller
 
-The low-level controller is really just a node that houses three separate controllers whose outputs are added together to get individual motor forces.
+The low-level controller is really just a node that houses three separate controllers whose outputs are superimposed to get individual motor forces.
 
 ## Z control
 
