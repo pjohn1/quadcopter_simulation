@@ -11,6 +11,7 @@ def generate_launch_description():
 
     urdf_quad = get_package_share_directory('quad_model')+'/urdf/quadcopter.urdf'
     urdf_map = get_package_share_directory('quad_model')+'/urdf/map.urdf'
+    pcd_file = get_package_share_directory('quad_model')+'/meshes/scan3.pcd'
 
     with open(urdf_quad,'r') as quad_urdf:
         quad_desc = quad_urdf.read()
@@ -20,16 +21,6 @@ def generate_launch_description():
 
     return LaunchDescription([
 
-        # Launch the robot_state_publisher
-
-        # Map robot_state_publisher
-        DeclareLaunchArgument(
-            'params_file',
-            default_value=PathJoinSubstitution([
-                FindPackageShare('quad_model'), 'params.yaml'
-            ]),
-            description='params.yaml'
-        ),
 
         Node(
             package='tf2_ros',
@@ -48,10 +39,17 @@ def generate_launch_description():
         ),
 
         Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='quad_transform',
+            arguments=['0', '0', '0', '0', '0', '0', 'map', 'base_link'],
+            output='screen'
+        ),
+
+        Node(
             package='quad_model',
             executable='physics_sim',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            parameters = [LaunchConfiguration('params_file')],
             output='screen'
         ),
 
@@ -59,7 +57,6 @@ def generate_launch_description():
             package='quad_model',
             executable='controller_node',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            parameters = [LaunchConfiguration('params_file')],
             output='screen'
         ),
 
@@ -105,6 +102,34 @@ def generate_launch_description():
                 ]),
             ],
         ),
+
+        Node(
+            package='quad_model',
+            executable='octo_launch',
+            name='octo_launch',
+            output='screen'
+        ),
+
+        Node(
+            package='pcl_ros',
+            executable='pcd_to_pointcloud',
+            name='pcd_publisher',
+            parameters=[{'file_name': pcd_file}],
+            output='screen'
+        ),
+
+        TimerAction(
+            period=5.0,
+            actions=[
+            Node(
+                package='quad_model',
+                executable='initialize_occupancy_grid',
+                name='initialize_occupancy_grid',
+                output='screen'
+            ),
+            ]
+        ),
+
         # Launch RViz2
         Node(
             package='rviz2',
