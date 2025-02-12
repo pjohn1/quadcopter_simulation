@@ -20,7 +20,7 @@ v is the error between the desired vertical velocity and the actual vertical vel
 
 $R_B^N$ is the rotation matrix from the body to the inertial frame based on the roll,pitch,yaw angles and a +x forward, +y left, +z up coordinate frame.
 
-$\Delta t$ is the controller update rate. This ensures that the drone reaches the intended vertical velocity by the next frame so that the high-level controller can function accordingly.
+$\Delta t$ is the desired convergence time. This should be sufficiently small to ensure quick controller adjustments but large enough to reduce total motor force. It is currently around 0.5s.
 
 By understanding the vertical velocity that the drone needs to maintain hover or reach a certain altitude, this gives a baseline for how to control the pitch and roll.
 
