@@ -7,7 +7,7 @@
 
 #define PI 3.1419
 #define MAX_VELOCITY 2.0
-#define GOAL_EPS 0.05 //within goal if we are within this epsilon
+#define GOAL_EPS 0.1 //within goal if we are within this epsilon
 #define DIST_ABOVE 0.5 //distance above the goal we want to get before descending
 
 class ControllerNode : public rclcpp::Node
@@ -89,7 +89,7 @@ class ControllerNode : public rclcpp::Node
                     last_error = error;
 
                     Eigen::Matrix<double,1,3> control = kp*error + kd*derror;
-                    std::cout<<"velocity control: "<<control<<std::endl;
+                    // std::cout<<"velocity control: "<<control<<std::endl;
 
                     std::vector<float> vel_float;
                     for(auto &vel : control) { vel_float.push_back(static_cast<float>(vel));}
@@ -111,9 +111,9 @@ class ControllerNode : public rclcpp::Node
             this->declare_parameter<double>("kp", 0.4);
             //initialize control parameters
             this->declare_parameter<double>("kd", 0.04);
-            point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/clicked_point",1,point_callback);
-            pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",1,pose_callback);
-            velocity_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/velocities",1);
+            point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/clicked_point",2,point_callback);
+            pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);
+            velocity_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/velocities",2);
 
         }
 

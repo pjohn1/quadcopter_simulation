@@ -13,28 +13,28 @@
 class PhysicsSim : public rclcpp::Node {
 public:
     PhysicsSim() : Node("physics_sim"), x(0.0), y(0.0), z(0.0), roll(0.0), pitch(0.0), yaw(0.0) {
-        this->declare_parameter<double>("update_rate", 20.0);
+        this->declare_parameter<double>("update_rate", 100.0);
         update_rate = this->get_parameter("update_rate").as_double();
 
         // Subscriber for forces and torques
         force_sub_ = this->create_subscription<std_msgs::msg::Float32MultiArray>(
-            "/quadcopter/forces", 10,
+            "/quadcopter/forces", 2,
             std::bind(&PhysicsSim::force_callback, this, std::placeholders::_1));
 
-        pose_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quad_pose",1);
+        pose_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quad_pose",2);
 
         // TF broadcaster, calculations are done in body frame so need to transform to map frame
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
         
         // Timer for the simulation loop
         timer_ = this->create_wall_timer(
-            std::chrono::milliseconds((int)round(1.0/update_rate*1000)),  // 10 Hz update rate
+            std::chrono::milliseconds((int)round(1.0/update_rate*1000)),
             std::bind(&PhysicsSim::update_pose, this));
     }
 
 private:
     void force_callback(std_msgs::msg::Float32MultiArray msg) {
-        //simply sets the velocities received from phyiscs_node
+        //simply sets the velocities received from physics_node
         std::vector<float> vec = msg.data;
         vx = static_cast<double>(vec[0]);
         vy = static_cast<double>(vec[1]);
@@ -63,6 +63,8 @@ private:
                 pitch = std::fmod(pitch + wy*dt, 2*PI);
                 yaw = std::fmod(yaw + wz*dt, 2*PI);
             }
+            // printf("Physics sim pitch: %.2f\n",pitch);
+            // std::cout<<"physics sim called"<<std::endl;
 
             last_time = this->get_clock()->now();
             geometry_msgs::msg::TransformStamped transform;

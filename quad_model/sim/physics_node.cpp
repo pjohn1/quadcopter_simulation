@@ -47,7 +47,7 @@ class ForcePubSub : public rclcpp::Node
                 Eigen::ArrayXd voltages = Eigen::Map<Eigen::ArrayXd>(v.data(), v.size());
 
                 Eigen::ArrayXd &forces = voltages;
-                std::cout<<"Incoming forces: "<<forces<<std::endl;
+                // std::cout<<"Incoming forces: "<<forces<<std::endl;
                 
                 /* Body frame forces */
                 float Fz = forces.sum();  //upwards force in body frame is just sum of all the forces;
@@ -66,13 +66,13 @@ class ForcePubSub : public rclcpp::Node
 
                     Eigen::Matrix<double,3,1> torques;
                     torques << Tx,Ty,Tz;
-                    std::cout<<"Torques: "<<torques<<std::endl;
+                    // std::cout<<"Torques: "<<torques<<std::endl;
 
                     //use T = I*alpha = I * w/dt
                     Eigen::Matrix<double,3,1> angular_velocity = (inertia_tensor.inverse() * torques) * dt;
                     wx+=angular_velocity[0];wy+=angular_velocity[1];wz+=angular_velocity[2];
                     Eigen::Matrix<double,1,3> w(wx,wy,wz);
-                    std::cout<<"angular velocities: "<< w << std::endl;
+                    // std::cout<<"angular velocities: "<< w << std::endl;
 
                     // first-order Rodrigues rotation
                     Eigen::Matrix<double,3,3> Rbn_next;
@@ -133,8 +133,8 @@ class ForcePubSub : public rclcpp::Node
                 }
             };
             Rbn << 1,0,0,0,1,0,0,0,1; //initialize Rbn to identity matrix
-            subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("voltage_input",1,voltage_callback);
-            publisher_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quadcopter/forces",1);
+            subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("voltage_input",2,voltage_callback);
+            publisher_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quadcopter/forces",2);
         }
 
         ~ForcePubSub(){

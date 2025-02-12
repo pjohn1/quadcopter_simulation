@@ -8,7 +8,7 @@
 
 #define MAX_PITCH 15*M_PI/180
 #define MAX_ROLL 15*M_PI/180
-
+#define MIN_MOTOR_FORCE 1e-3
 #define g 9.81
 
 /* This node takes a desired speed input and
@@ -53,11 +53,12 @@ class VelocityConverter : public rclcpp::Node
 
         double derror_wx=0.0;
         double derror=0.0;
-        // const double dt=0.05; //20Hz
-        double update_rate;
+
         double dt;
         double last_time;
         bool initialized = false;
+        double convergence_time;
+
         Drone *mass_prop;
         RotationMatrix *rotate;
         Eigen::Matrix<double,3,3> R;
@@ -93,6 +94,8 @@ class VelocityConverter : public rclcpp::Node
                 double yaw_new = static_cast<double>(msg.data[5]);
                 std::vector<double> forces = {0.0,0.0,0.0,0.0};
 
+                convergence_time = this->get_parameter("convergence_time").as_double();
+
                 dt = this->get_clock()->now().seconds() - last_time;
                 vx = (x_new-x)/dt;vy=(y_new-y)/dt;vz=(z_new-z)/dt;
                 x=x_new;y=y_new;z=z_new;
@@ -105,11 +108,10 @@ class VelocityConverter : public rclcpp::Node
                 rotate = new RotationMatrix(roll,pitch,yaw);
                 R = rotate->R;
 
-                std::cout<<"roll: "<<roll<<" pitch: "<<pitch<<" yaw: "<<yaw<<std::endl;
                 // vz control
                 // required mg is 0.7848N or 0.1962 from each motor
                 double vz_error = desired_vz - vz;
-                double rhs = mass_prop->mass*(vz_error/update_rate+g);
+                double rhs = mass_prop->mass*(vz_error/convergence_time+g);
                 // required force in inertial frame to minimize z error
 
                 Eigen::Matrix<double,3,1> F(0.0,0.0,rhs);
@@ -120,13 +122,11 @@ class VelocityConverter : public rclcpp::Node
                 for (auto &force : forces) { force+=f_i/4; }
                 // assume equal contribution from each motor
 
-                double convergence_time = update_rate; //in case I want to change delta-t
-
                 //vx controller
-                const double kp_vx = this->get_parameter("kp_vx").as_double();
-                const double kd_vx = this->get_parameter("kd_vx").as_double();
+                const double kp = this->get_parameter("kp").as_double();
+                const double kd = this->get_parameter("kd").as_double();
                 double vx_error = desired_vx - vx;
-                std::cout<<"vx error: "<<vx_error<<std::endl;
+                // std::cout<<"vx error: "<<vx_error<<std::endl;
 
                 double desired_pitch = std::asin(mass_prop->mass*vx_error/(f_i*convergence_time));
                 if ( abs(desired_pitch) > MAX_PITCH )
@@ -140,6 +140,7 @@ class VelocityConverter : public rclcpp::Node
                     //if arcsin throws a nan value, the pitch is too high so just pitch max
                     desired_pitch = vx_error/abs(vx_error) * MAX_PITCH;
                 }
+                // std::cout<<"contoller pitch called"<<std::endl;
 
                 double pitch_error = desired_pitch - pitch;
 
@@ -160,8 +161,7 @@ class VelocityConverter : public rclcpp::Node
                 //divide by 4 because we add to necessary rotors and subtract from unnecessary rotors
                 //ie if f=+4, we add +1 to back rotors and subtract 1 from front so (2) - (-2) = 4
                 double df = correction_torque/(4*mass_prop->distance_to_motor);
-                double f_new = kp_vx*f + kd_vx*df;
-                std::cout<<"px: "<<kp_vx*f<<" dx: "<<kd_vx*df<<std::endl;
+                double f_new = kp*f + kd*df;
                 
                 if (error > 0.0)
                 {
@@ -176,8 +176,6 @@ class VelocityConverter : public rclcpp::Node
 
                 //vy controller
                 //same as vx, probably could all be put into a template but i like explicit code
-                const double kp_vy = this->get_parameter("kp_vy").as_double(); // v = wr = sqrt(2)/2 * d * w
-                const double kd_vy = this->get_parameter("kd_vy").as_double();
                 double vy_error = desired_vy - vy;
                 double desired_roll = std::asin(mass_prop->mass*vy_error/(f_i*convergence_time));
                 if ( abs(desired_roll) > MAX_ROLL )
@@ -191,7 +189,7 @@ class VelocityConverter : public rclcpp::Node
                 }
                 double roll_error = desired_roll - roll;
 
-                std::cout<<"desired roll: "<<desired_roll<<" actual: "<<roll<<std::endl;
+                // std::cout<<"desired roll: "<<desired_roll<<" actual: "<<roll<<std::endl;
 
                 double desired_wx = roll_error/dt;
                 double error_wx = desired_wx - wx;
@@ -206,9 +204,7 @@ class VelocityConverter : public rclcpp::Node
 
                 double f_x = required_torque_wx/(4*mass_prop->distance_to_motor);
                 double df_x = correction_torque_wx/(4*mass_prop->distance_to_motor);
-                double f_new_x = kp_vy*f_x + kd_vy*df_x;
-                std::cout<< "p_y: "<<kp_vy*f_x<<" d_y: "<<kd_vy*df_x<<std::endl;
-
+                double f_new_x = kp*f_x + kd*df_x;
                 
                 if (error_wx > 0.0)
                 {
@@ -219,6 +215,19 @@ class VelocityConverter : public rclcpp::Node
                 {
                     forces[0]+=abs(f_new_x);forces[3]+=abs(f_new_x);
                     forces[1]-=abs(f_new_x);forces[2]-=abs(f_new_x);
+                }
+
+                //apply correction to ensure no negative motor forces
+                Eigen::Matrix<double,1,4> pf(forces[0],forces[1],forces[2],forces[3]);
+                double min_force = *std::min_element(forces.begin(),forces.end());
+                double sum = pf.sum();
+                if (min_force < MIN_MOTOR_FORCE)
+                {
+                    double scale = sum / ( sum + 4*abs(min_force) ); //sum scale factor
+                    for(auto &force : forces) {
+                        force += abs(min_force);
+                        force *= scale;
+                    }
                 }
 
                 std::vector<float> forces_float;
@@ -232,17 +241,14 @@ class VelocityConverter : public rclcpp::Node
         };
 
 
-        this->declare_parameter<double>("update_rate", 20.0);
-        update_rate = 1.0/this->get_parameter("update_rate").as_double();
-        this->declare_parameter<double>("kp_vx", 0.1);
-        this->declare_parameter<double>("kd_vx",0.02);
-        this->declare_parameter<double>("kp_vy", 0.1);
-        this->declare_parameter<double>("kd_vy",0.02);
+        this->declare_parameter<double>("convergence_time",0.5);
+        convergence_time = this->get_parameter("convergence_time").as_double();
+        this->declare_parameter<double>("kp", 4.0*convergence_time);
+        this->declare_parameter<double>("kd",1.0*convergence_time);
         mass_prop = new Drone();
-        velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",1,velocity_callback);
-        pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",1,pose_callback);
-        voltage_publisher = this->create_publisher<std_msgs::msg::Float32MultiArray>("/voltage_input",1);
-        parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(this, "source_node");
+        velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",2,velocity_callback);
+        pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);
+        voltage_publisher = this->create_publisher<std_msgs::msg::Float32MultiArray>("/voltage_input",2);
     }
     ~VelocityConverter()
     {
