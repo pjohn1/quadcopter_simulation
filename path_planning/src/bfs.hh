@@ -31,14 +31,15 @@ class BFS
                 std::shared_ptr<PathNode> curr_node = *q.begin();
                 q.erase(q.begin());
 
-                std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors(curr_node->pose,points,resolution);        
+                std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors(curr_node->pose,points,resolution,initial_pose);        
                 for (Eigen::RowVector3d neighbor : neighbors) //neighbor is a row vector
                 {
                     // std::cout<<"node: "<<curr_node.pose<<" neighbor:"<<neighbor<<std::endl;
-                    std::shared_ptr<PathNode> n = std::make_shared<PathNode>(neighbor,curr_node);
-
+                
+                    double dist_from_start = (neighbor-initial_pose).norm();
+                    std::shared_ptr<PathNode> n = std::make_shared<PathNode>(neighbor,curr_node,dist_from_start);
                     node_objects.push_back(*n);
-                    
+
                     double dist = (goal_pose-neighbor).norm();
                     if ( dist < 1e-6)
                     {
