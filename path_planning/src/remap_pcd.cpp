@@ -15,7 +15,7 @@ class PcdConverter : public rclcpp::Node
             {
                 sensor_msgs::msg::PointCloud2 new_msg = sensor_msgs::msg::PointCloud2();
                 new_msg = msg;
-                new_msg.header.frame_id = "base_link";
+                new_msg.header.frame_id = "map";
                 pcd_pub->publish(new_msg);
             };
             pcd_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>("/cloud_pcd",1,pcd_callback);

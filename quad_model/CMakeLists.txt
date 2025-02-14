@@ -47,13 +47,9 @@ ament_target_dependencies(velocity_controller rclcpp std_msgs geometry_msgs Eige
 add_executable(controller_node controllers/controller_node.cpp)
 ament_target_dependencies(controller_node rclcpp std_msgs geometry_msgs Eigen3)
 
-add_executable(initialize_occupancy_grid launch/initialize_occupancy_grid.cpp)
-ament_target_dependencies(initialize_occupancy_grid rclcpp sensor_msgs Eigen3)
-
 install(TARGETS physics_node DESTINATION lib/${PROJECT_NAME})
 install(TARGETS physics_sim DESTINATION lib/${PROJECT_NAME})
 install(TARGETS controller_node DESTINATION lib/${PROJECT_NAME})
 install(TARGETS velocity_controller DESTINATION lib/${PROJECT_NAME})
-install(TARGETS initialize_occupancy_grid DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

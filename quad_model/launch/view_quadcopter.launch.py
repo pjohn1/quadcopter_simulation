@@ -11,7 +11,7 @@ def generate_launch_description():
 
     urdf_quad = get_package_share_directory('quad_model')+'/urdf/quadcopter.urdf'
     urdf_map = get_package_share_directory('quad_model')+'/urdf/map.urdf'
-    pcd_file = get_package_share_directory('quad_model')+'/meshes/scan3.pcd'
+    pcd_file = get_package_share_directory('quad_model')+'/meshes/scan3_parsed.pcd'
 
     with open(urdf_quad,'r') as quad_urdf:
         quad_desc = quad_urdf.read()
@@ -104,13 +104,6 @@ def generate_launch_description():
         ),
 
         Node(
-            package='quad_model',
-            executable='octo_launch',
-            name='octo_launch',
-            output='screen'
-        ),
-
-        Node(
             package='pcl_ros',
             executable='pcd_to_pointcloud',
             name='pcd_publisher',
@@ -118,16 +111,21 @@ def generate_launch_description():
             output='screen'
         ),
 
+        Node(
+            package='path_planning',
+            executable='remap_pcd',
+            output='screen'
+        ),
+
         TimerAction(
             period=5.0,
             actions=[
-            Node(
-                package='quad_model',
-                executable='initialize_occupancy_grid',
-                name='initialize_occupancy_grid',
-                output='screen'
-            ),
-            ]
+                Node(
+                    package='path_planning',
+                    executable='path_plan_main',
+                    output='screen'
+                ),
+            ],
         ),
 
         # Launch RViz2
