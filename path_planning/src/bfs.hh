@@ -1,5 +1,8 @@
 #include <Eigen/Dense>
 #include <iostream>
+#include <set>
+#include "search_functions.hh"
+#include <memory>
 
 class BFS
 {
@@ -8,57 +11,56 @@ class BFS
         const Eigen::Matrix<double,1,3> initial_pose;
         const Eigen::Matrix<double,1,3> goal_pose;
         const double resolution;
+        std::list<PathNode> node_objects;
 
-    
     public:
-        Eigen::MatrixXd get_neighbors(Eigen::Matrix<double,1,3> loc)
-        {    
-            Eigen::MatrixXd dist(points.rows(),points.cols());
-            dist = points.rowwise() - loc;
-            Eigen::MatrixXd new_dist(points.rows(),1);
-            new_dist = dist.rowwise().norm();
 
-            Eigen::MatrixXd mask = (new_dist.array() <= (resolution + 1e-2)).cast<double>();
-            Eigen::MatrixXd masked_points(points.rows(),points.cols());
-            for (int r=0;r<points.rows();r++)
-            {
-                Eigen::Matrix<double,1,3> row_mult = points.row(r) * mask(r,0);
-
-                masked_points(r,0) = row_mult[0];
-                masked_points(r,1) = row_mult[1];
-                masked_points(r,2) = row_mult[2];
-            }
-            std::cout<<"Applied mask"<<std::endl;
-
-            Eigen::MatrixXd nonzero_points(26,3); //max # of neighbors is 26
-
-            int curr_row = 0;
-            for (int i=0;i<masked_points.rows();i++)
-            {
-                if (masked_points(i,0) > 1e-6 || masked_points(i,1) > 1e-6 || masked_points(i,2) > 1e-6) 
-                { 
-                    nonzero_points(curr_row,0) = masked_points(i,0);
-                    nonzero_points(curr_row,1) = masked_points(i,1);
-                    nonzero_points(curr_row,2) = masked_points(i,2);
-                    curr_row++;
-                    if (curr_row > 25){ break; }
-                }
-
-            }
-
-            if (curr_row == 0){
-                std::cout<<"no neighbors"<<std::endl;
-            }
-
-            return nonzero_points;
-        }
-
-        BFS (const Eigen::Matrix<double,1,3> initial, const Eigen::Matrix<double,1,3> goal, Eigen::MatrixXd pts, double res)
+        BFS (const Eigen::RowVector3d initial, const Eigen::RowVector3d goal, Eigen::MatrixXd pts, double res)
          :  points(pts),initial_pose(initial),goal_pose(goal), resolution(res)
-        {
-            std::cout<<"resolution: "<<resolution<<std::endl;
-            Eigen::Matrix<double,1,3> m(0,0,0);
-            std::cout<<get_neighbors(m)<<std::endl;
+        {}
 
+        std::vector<PathNode> search()
+        {
+            std::set<PathNode, PathNodeComparator> seen;
+            std::vector<std::shared_ptr<PathNode>> q = {std::make_shared<PathNode>(initial_pose,0.0)};
+            std::vector<PathNode> path;
+            bool goal_reached = false;
+
+            while(!q.empty())
+            {
+                std::shared_ptr<PathNode> curr_node = *q.begin();
+                q.erase(q.begin());
+
+                std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors(curr_node->pose,points,resolution);        
+                for (Eigen::RowVector3d neighbor : neighbors) //neighbor is a row vector
+                {
+                    // std::cout<<"node: "<<curr_node.pose<<" neighbor:"<<neighbor<<std::endl;
+                    std::shared_ptr<PathNode> n = std::make_shared<PathNode>(neighbor,curr_node);
+
+                    node_objects.push_back(*n);
+                    
+                    double dist = (goal_pose-neighbor).norm();
+                    if ( dist < 1e-6)
+                    {
+                        path = get_path(*n);
+                        goal_reached=true;
+                        break;
+                    }
+
+                    if (seen.find(*n) == seen.end()) //if n not in seen
+                    {
+                        seen.insert(*n);
+                        q.push_back(n);
+                    }
+
+                }
+                if (goal_reached) break;
+            }
+            return path;
         }
+    ~BFS()
+    {
+        for (auto node : node_objects) delete &node;
+    }
+
 };

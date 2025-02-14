@@ -38,13 +38,15 @@ class PathPlanner : public rclcpp::Node
 
             std::cout<<"Done parsing grid!"<<std::endl;
 
-            Eigen::Matrix<double,1,3> start(0.0,0.0,1.0);
+            Eigen::Matrix<double,1,3> start(0.0,0.0,0.0);
             Eigen::Matrix<double,1,3> goal(0.0,0.0,2.0);
 
-            double dist_value = 0.5 * sqrt(3); // all neighbors are at a max sqrt(3)*res distance away
+            double dist_value = 0.5; // all neighbors are at a max sqrt(3)*res distance away
 
             bfs = new BFS(start,goal,points,dist_value);
-
+            std::vector<PathNode> path = bfs->search();
+            std::cout<<"Got path!"<<std::endl;
+            for( auto &n : path) std::cout<<n.pose<<std::endl;
 
         }
         ~PathPlanner(){

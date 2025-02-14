@@ -33,7 +33,11 @@ seen_cords = set()
 for i in range(count,rows):
     ls = pcd_lines[i].split(' ')
     coord = np.array((ls[0],ls[1],ls[2][:-1])).astype(float)
-    if tuple(coord) not in seen_cords:
+    for i in range(3):
+        if abs(coord[i]) < 1e-6:
+            coord[i] = abs(coord[i])
+
+    if tuple(coord) not in seen_cords and coord[2] > -1e-6:
         coords = np.vstack((coords,coord))
         seen_cords.add(tuple(coord))
     else:

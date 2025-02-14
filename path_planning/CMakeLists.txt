@@ -18,9 +18,6 @@ find_package(Eigen3 REQUIRED)
 
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
-add_executable(initialize_occupancy_grid src/initialize_occupancy_grid.cpp)
-ament_target_dependencies(initialize_occupancy_grid rclcpp sensor_msgs Eigen3)
-
 add_executable(remap_pcd src/remap_pcd.cpp)
 ament_target_dependencies(remap_pcd rclcpp sensor_msgs Eigen3)
 
@@ -31,7 +28,6 @@ add_executable(path_plan_main src/path_plan_main.cpp)
 ament_target_dependencies(path_plan_main rclcpp visualization_msgs geometry_msgs Eigen3)
 
 
-install(TARGETS initialize_occupancy_grid DESTINATION lib/${PROJECT_NAME})
 install(TARGETS remap_pcd DESTINATION lib/${PROJECT_NAME})
 install(TARGETS visualize_free_space DESTINATION lib/${PROJECT_NAME})
 install(TARGETS path_plan_main DESTINATION lib/${PROJECT_NAME})

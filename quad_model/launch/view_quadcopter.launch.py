@@ -118,8 +118,13 @@ def generate_launch_description():
         ),
 
         TimerAction(
-            period=5.0,
+            period=3.0,
             actions=[
+                Node(
+                    package='path_planning',
+                    executable='visualize_free_space',
+                    output='screen'
+                ),
                 Node(
                     package='path_planning',
                     executable='path_plan_main',
