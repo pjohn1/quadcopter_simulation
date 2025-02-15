@@ -6,13 +6,28 @@
 struct PathNode {
     Eigen::RowVector3d pose;
     std::shared_ptr<PathNode> parent;
-    double dist_from_start;
+    double cost;
+    double g_score;
+    double f_score;
     bool has_parent;
+
+    void updateNode(const PathNode &p2)
+    {
+        this->pose = p2.pose;
+        this->parent = p2.parent;
+        this->cost = p2.cost;
+        this->g_score = p2.g_score;
+        this->f_score = p2.f_score;
+    }
+
     PathNode(){}
     PathNode(Eigen::RowVector3d curr_pose, std::shared_ptr<PathNode> last_node, double dist)
-    : pose(curr_pose), parent(last_node), has_parent(true), dist_from_start(dist) {}
+    : pose(curr_pose), parent(last_node), has_parent(true), cost(dist) {}
     PathNode(Eigen::RowVector3d curr_pose, double last_node)
-    : pose(curr_pose),has_parent(false),dist_from_start(0.0) {}
+    : pose(curr_pose),has_parent(false),cost(0.0),g_score(0.0) {}
+    PathNode(Eigen::RowVector3d curr_pose, std::shared_ptr<PathNode> last_node, double dist, double gscore, double fscore)
+    : pose(curr_pose),has_parent(true),cost(dist),g_score(gscore),f_score(fscore) 
+    {}
 };
 
 struct RowVector3dComparator {

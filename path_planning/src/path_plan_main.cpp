@@ -7,7 +7,7 @@
 #include <Eigen/Dense>
 #include <fstream>
 #include <iostream>
-#include "bfs.hh"
+#include "astar.hh"
 
 class PathPlanner : public rclcpp::Node
 {
@@ -17,7 +17,8 @@ class PathPlanner : public rclcpp::Node
         rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub;
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr pose_sub;
 
-        BFS *bfs;
+        // BFS *bfs;
+        AStar *astar;
         Eigen::MatrixXd points;
         bool initialized = false;
 
@@ -51,9 +52,10 @@ class PathPlanner : public rclcpp::Node
 
                     double dist_value = 0.5; // all neighbors are at a max sqrt(3)*res distance away
 
-                    bfs = new BFS(start,goal,points,dist_value);
+                    // bfs = new BFS(start,goal,points,dist_value);
+                    astar = new AStar(start,goal,points,dist_value);
                     std::cout<<"Finding path. . ."<<std::endl;
-                    std::vector<PathNode> path = bfs->search();
+                    std::vector<PathNode> path = astar->search();
                     path.push_back(PathNode(original_goal,std::make_shared<PathNode>(path.back()),1e20));
                     //add original goal so we end up there
                     std::cout<<"Got path!"<<std::endl;
@@ -132,7 +134,7 @@ class PathPlanner : public rclcpp::Node
 
         }
         ~PathPlanner(){
-            delete bfs;
+            delete astar;
         }
 };
 

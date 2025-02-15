@@ -1,8 +1,8 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include <set>
-#include "search_functions.hh"
 #include <memory>
+#include <list>
 
 class BFS
 {
