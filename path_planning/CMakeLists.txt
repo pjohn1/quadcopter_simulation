@@ -25,11 +25,15 @@ add_executable(visualize_free_space src/visualize_free_space.cpp)
 ament_target_dependencies(visualize_free_space rclcpp visualization_msgs geometry_msgs Eigen3)
 
 add_executable(path_plan_main src/path_plan_main.cpp)
-ament_target_dependencies(path_plan_main rclcpp visualization_msgs geometry_msgs Eigen3)
+ament_target_dependencies(path_plan_main rclcpp std_msgs visualization_msgs geometry_msgs Eigen3)
+
+add_executable(path_point_publisher src/path_point_publisher.cpp)
+ament_target_dependencies(path_point_publisher rclcpp std_msgs geometry_msgs Eigen3)
 
 
 install(TARGETS remap_pcd DESTINATION lib/${PROJECT_NAME})
 install(TARGETS visualize_free_space DESTINATION lib/${PROJECT_NAME})
 install(TARGETS path_plan_main DESTINATION lib/${PROJECT_NAME})
+install(TARGETS path_point_publisher DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

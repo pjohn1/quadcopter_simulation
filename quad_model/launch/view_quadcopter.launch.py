@@ -130,6 +130,11 @@ def generate_launch_description():
                     executable='path_plan_main',
                     output='screen'
                 ),
+                Node(
+                    package='path_planning',
+                    executable='path_point_publisher',
+                    output='screen'
+                ),
             ],
         ),
 

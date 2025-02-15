@@ -45,7 +45,7 @@ class ControllerNode : public rclcpp::Node
 
             auto point_callback = [this](const geometry_msgs::msg::PointStamped &msg) -> void
             {
-                goal_pose << msg.point.x, msg.point.y, msg.point.z+DIST_ABOVE;
+                goal_pose << msg.point.x, msg.point.y, msg.point.z;
                 //initialize goal pose to 0.5m above
                 goal_yaw = std::atan2(msg.point.y,msg.point.x);
                 last_error << 0.0,0.0,0.0;
@@ -74,18 +74,7 @@ class ControllerNode : public rclcpp::Node
                     float yaw_control = kp_yaw * static_cast<float>(yaw_difference);
 
                     Eigen::Matrix<double,1,3> error = goal_pose-pose;
-
-                    int dtoggle = 1;
-                    if (abs(error[0]) < GOAL_EPS && abs(error[1]) < GOAL_EPS && !goal_updated)
-                    {
-                        //if we have reached the x and y position, lets descend
-                        goal_pose[2] -= DIST_ABOVE;
-                        error = goal_pose-pose;
-                        dtoggle=0; //derivative error will jump unless it is toggled off
-                        goal_updated = true;
-                    }
-
-                    Eigen::Matrix<double,1,3> derror = dtoggle*(error-last_error)/dt;
+                    Eigen::Matrix<double,1,3> derror = (error-last_error)/dt;
                     last_error = error;
 
                     Eigen::Matrix<double,1,3> control = kp*error + kd*derror;

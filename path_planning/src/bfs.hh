@@ -22,19 +22,19 @@ class BFS
         std::vector<PathNode> search()
         {
             std::set<PathNode, PathNodeComparator> seen;
-            std::vector<std::shared_ptr<PathNode>> q = {std::make_shared<PathNode>(initial_pose,0.0)};
+            std::list<std::shared_ptr<PathNode>> q = {std::make_shared<PathNode>(initial_pose,0.0)};
             std::vector<PathNode> path;
             bool goal_reached = false;
 
             while(!q.empty())
             {
                 std::shared_ptr<PathNode> curr_node = *q.begin();
-                q.erase(q.begin());
+                q.pop_front();
 
                 std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors(curr_node->pose,points,resolution,initial_pose);        
                 for (Eigen::RowVector3d neighbor : neighbors) //neighbor is a row vector
                 {
-                    // std::cout<<"node: "<<curr_node.pose<<" neighbor:"<<neighbor<<std::endl;
+                    std::cout<<"node: "<<curr_node->pose<<std::endl;
                 
                     double dist_from_start = (neighbor-initial_pose).norm();
                     std::shared_ptr<PathNode> n = std::make_shared<PathNode>(neighbor,curr_node,dist_from_start);
