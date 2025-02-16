@@ -24,7 +24,7 @@ class AStar
         struct Comparator
         {
             bool operator()(const std::shared_ptr<PathNode>& p1, const std::shared_ptr<PathNode>& p2) const {
-                if (p1->f_score != p2->f_score) return p1->f_score < p2->f_score;
+                if (p1->f_score != p2->f_score) return p1->f_score > p2->f_score;
                 return false;
             }
         };
@@ -41,7 +41,7 @@ class AStar
             while(!q.empty())
             {
                 std::shared_ptr<PathNode> curr_node = q.top();
-                std::cout<<"current: "<<curr_node->pose<<std::endl;
+                std::cout<<"current: "<<curr_node->f_score<<std::endl;
                 q.pop();
 
                 std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors(curr_node->pose,points,resolution,initial_pose);        
@@ -70,12 +70,14 @@ class AStar
 
                     if ( dist_from_goal < 1e-6)
                     {
+                        std::cout<<"Goal found!"<<std::endl;
                         path = get_path(*n);
+                        std::cout<<"Got Path!"<<std::endl;
                         goal_reached=true;
                         break;
                     }
 
-                    if (seen.find(*n) == seen.end() && tentative_gscore < n->g_score)
+                    if (seen.find(*n) == seen.end() && tentative_gscore <= n->g_score)
                     {
 
                         seen.insert(*n);
