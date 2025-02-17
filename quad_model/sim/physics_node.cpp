@@ -61,62 +61,67 @@ class ForcePubSub : public rclcpp::Node
                     /* Calculating attitude using first-order Rodrigues rotation formula*/
                     /* https://www.roboticsbook.org/S72_drone_actions.html#drone-kinematics */
 
+                    double update_rate = 1.0/100;
                     dt = this->get_clock()->now().seconds() - last_time;
-
-
-                    Eigen::Matrix<double,3,1> torques;
-                    torques << Tx,Ty,Tz;
-                    // std::cout<<"Torques: "<<torques<<std::endl;
-
-                    //use T = I*alpha = I * w/dt
-                    Eigen::Matrix<double,3,1> angular_velocity = (inertia_tensor.inverse() * torques) * dt;
-                    wx+=angular_velocity[0];wy+=angular_velocity[1];wz+=angular_velocity[2];
-                    Eigen::Matrix<double,1,3> w(wx,wy,wz);
-                    // std::cout<<"angular velocities: "<< w << std::endl;
-
-                    // first-order Rodrigues rotation
-                    Eigen::Matrix<double,3,3> Rbn_next;
-                    Rbn_next << 1, -wz*dt, wy*dt,
-                                wz*dt, 1, -wx*dt,
-                                -wy*dt, wx*dt, 1;
-                    Rbn = Rbn * Rbn_next; //attitude matrix
-                    //Rbn is an SO(3) matrix representing the x,y,z unit vectors after rotation
-
-                    double yaw_angle = std::atan2(Rbn(1,0),Rbn(0,0));
-                    double pitch_angle = std::atan2(-Rbn(2,0),std::sqrt(std::pow(Rbn(2,1),2) + std::pow(Rbn(2,2),2) ));
-                    double roll_angle = -std::atan2(Rbn(1,2),Rbn(2,2));
-
-                    // std::cout<<"Roll angle: "<<roll_angle<<std::endl;
-                    std::cout<<"pitch: "<<pitch_angle<<" roll: "<<roll_angle<<std::endl;
-
-                    Eigen::Matrix<double,3,1> Fb;
-                    Fb << 0,0,Fz;
-                    Eigen::Matrix<double,3,1> Fo;
-
-                    double drag = 0;//1/2.0 * mass_prop->cd * 1.225 * .005 * pow(vx,2);
-                    //drag is incredibly small from testing so for now just assume negligible
-
-                    Fo << drag,0,mass*g;
-                    //Fg acts in the inertial -z direction (will subtract)
-
-                    rotate = new RotationMatrix(roll_angle,pitch_angle,yaw_angle);
-                    //instantiate rotation matrix class with current attitude
-                    R = rotate->R;
-
-                    Eigen::Matrix<double,3,1> dvn = dt/mass * ( (R*Fb - Fo) );
-                    //inertial change in velocity due to small delta-t
-                    vx+=dvn[0];vy+=dvn[1];vz+=dvn[2];
-
-                    std::vector<double> double_vals = {vx,vy,vz,wx,wy,wz};
-                    std::vector<float> msg_data;
-                    //convert double vector to float
-                    //could be done more efficiently but tbh i already wrote the code
-                    for( auto &val : double_vals) { msg_data.push_back(static_cast<float>(val));}
-                    std::cout<<"Publishing velocities: "<<vx<<" "<<vy<<" "<<vz<<" "<<std::endl;
-                    std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
-                    msg_pub.data = msg_data;
-                    publisher_->publish(msg_pub);
                     last_time = this->get_clock()->now().seconds();
+
+                    if (dt < 2*update_rate)
+                    {
+
+                        Eigen::Matrix<double,3,1> torques;
+                        torques << Tx,Ty,Tz;
+                        // std::cout<<"Torques: "<<torques<<std::endl;
+
+                        //use T = I*alpha = I * w/dt
+                        Eigen::Matrix<double,3,1> angular_velocity = (inertia_tensor.inverse() * torques) * dt;
+                        wx+=angular_velocity[0];wy+=angular_velocity[1];wz+=angular_velocity[2];
+                        Eigen::Matrix<double,1,3> w(wx,wy,wz);
+                        // std::cout<<"angular velocities: "<< w << std::endl;
+
+                        // first-order Rodrigues rotation
+                        Eigen::Matrix<double,3,3> Rbn_next;
+                        std::cout<<"dt: "<<dt<<std::endl;
+                        Rbn_next << 1, -wz*dt, wy*dt,
+                                    wz*dt, 1, -wx*dt,
+                                    -wy*dt, wx*dt, 1;
+                        Rbn = Rbn * Rbn_next; //attitude matrix
+                        //Rbn is an SO(3) matrix representing the x,y,z unit vectors after rotation
+
+                        double yaw_angle = std::atan2(Rbn(1,0),Rbn(0,0));
+                        double pitch_angle = std::atan2(-Rbn(2,0),std::sqrt(std::pow(Rbn(2,1),2) + std::pow(Rbn(2,2),2) ));
+                        double roll_angle = -std::atan2(Rbn(1,2),Rbn(2,2));
+
+                        // std::cout<<"Roll angle: "<<roll_angle<<std::endl;
+                        std::cout<<"pitch: "<<pitch_angle<<" roll: "<<roll_angle<<std::endl;
+
+                        Eigen::Matrix<double,3,1> Fb;
+                        Fb << 0,0,Fz;
+                        Eigen::Matrix<double,3,1> Fo;
+
+                        double drag = 0;//1/2.0 * mass_prop->cd * 1.225 * .005 * pow(vx,2);
+                        //drag is incredibly small from testing so for now just assume negligible
+
+                        Fo << drag,0,mass*g;
+                        //Fg acts in the inertial -z direction (will subtract)
+
+                        rotate = new RotationMatrix(roll_angle,pitch_angle,yaw_angle);
+                        //instantiate rotation matrix class with current attitude
+                        R = rotate->R;
+
+                        Eigen::Matrix<double,3,1> dvn = dt/mass * ( (R*Fb - Fo) );
+                        //inertial change in velocity due to small delta-t
+                        vx+=dvn[0];vy+=dvn[1];vz+=dvn[2];
+
+                        std::vector<double> double_vals = {vx,vy,vz,wx,wy,wz};
+                        std::vector<float> msg_data;
+                        //convert double vector to float
+                        //could be done more efficiently but tbh i already wrote the code
+                        for( auto &val : double_vals) { msg_data.push_back(static_cast<float>(val));}
+                        std::cout<<"Publishing velocities: "<<vx<<" "<<vy<<" "<<vz<<" "<<std::endl;
+                        std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
+                        msg_pub.data = msg_data;
+                        publisher_->publish(msg_pub);
+                    }
                     
                 }
 
