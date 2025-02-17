@@ -1,7 +1,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
-#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <Eigen/Dense>
@@ -9,18 +9,21 @@
 #include <iostream>
 #include "astar.hh"
 
+#define RES 1.0
+
 class PathPlanner : public rclcpp::Node
 {
     private:
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub; //vis
         rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr path_pub;
-        rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub;
+        rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr goal_sub;
         rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr pose_sub;
 
         // BFS *bfs;
         AStar *astar;
         Eigen::MatrixXd points;
         bool initialized = false;
+        Eigen::Matrix<double,1,3> goal;
 
         double x,y,z; //current_position
 
@@ -34,12 +37,12 @@ class PathPlanner : public rclcpp::Node
                 x = msg.data[0];y = msg.data[1];z=msg.data[2];
             };
 
-            auto goal_callback = [this](const geometry_msgs::msg::PoseStamped &msg) -> void
+            auto goal_callback = [this](const geometry_msgs::msg::PointStamped &msg) -> void
             {
-                if (initialized)
+                if (initialized && goal[0] != msg.point.x && goal[1] != msg.point.y && goal[2] != msg.point.z)
                 {
                     Eigen::Matrix<double,1,3> start(x,y,z);
-                    Eigen::Matrix<double,1,3> goal(msg.pose.position.x,msg.pose.position.y,msg.pose.position.z);
+                    goal << msg.point.x,msg.point.y,msg.point.z;
                     Eigen::Matrix<double,1,3> original_goal = goal;
                     int rows = points.rows();
                     Eigen::MatrixXd point_dist = (points.rowwise() - goal).rowwise().norm();
@@ -50,7 +53,7 @@ class PathPlanner : public rclcpp::Node
                     std::cout<<"goal: "<<goal<<std::endl;
 
 
-                    double dist_value = 0.5; // all neighbors are at a max sqrt(3)*res distance away
+                    double dist_value = RES; // all neighbors are at a max sqrt(3)*res distance away
 
                     // bfs = new BFS(start,goal,points,dist_value);
                     astar = new AStar(start,goal,points,dist_value);
@@ -105,7 +108,7 @@ class PathPlanner : public rclcpp::Node
                 }
             };
 
-            goal_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/goal_pose",2,goal_callback);
+            goal_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/clicked_point",2,goal_callback);
             marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("/path",1);
             path_pub = this->create_publisher<geometry_msgs::msg::PoseArray>("/path_points",1);
             pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);
@@ -114,7 +117,7 @@ class PathPlanner : public rclcpp::Node
             std::cout<<"Got grid"<<std::endl;
             double x,y,z;
             int current_row = 0;
-            points = Eigen::MatrixXd(19955,3);
+            points = Eigen::MatrixXd(11088,3);
             if (file.is_open()) {
                 while(file >> x >> y >> z)
                 {

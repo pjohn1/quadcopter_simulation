@@ -48,7 +48,8 @@ class ControllerNode : public rclcpp::Node
                 goal_pose << msg.point.x, msg.point.y, msg.point.z;
                 //initialize goal pose to 0.5m above
                 goal_yaw = std::atan2(msg.point.y,msg.point.x);
-                last_error << 0.0,0.0,0.0;
+                if (!initialized) last_error << 0.0,0.0,0.0;
+                // last_error << 0.0,0.0,0.0;
                 initialized = true;
                 goal_updated = false;
             };
@@ -78,7 +79,6 @@ class ControllerNode : public rclcpp::Node
                     last_error = error;
 
                     Eigen::Matrix<double,1,3> control = kp*error + kd*derror;
-                    // std::cout<<"velocity control: "<<control<<std::endl;
 
                     std::vector<float> vel_float;
                     for(auto &vel : control) { vel_float.push_back(static_cast<float>(vel));}
@@ -100,7 +100,7 @@ class ControllerNode : public rclcpp::Node
             this->declare_parameter<double>("kp", 0.4);
             //initialize control parameters
             this->declare_parameter<double>("kd", 0.04);
-            point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/clicked_point",2,point_callback);
+            point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/current_point",2,point_callback);
             pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);
             velocity_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/velocities",2);
 

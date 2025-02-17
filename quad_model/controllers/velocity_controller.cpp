@@ -230,6 +230,7 @@ class VelocityConverter : public rclcpp::Node
                     }
                 }
 
+                std::cout<<"Forces: "<<forces[0]<<" "<<forces[1]<<" "<<forces[2]<<" "<<forces[3]<<std::endl;
                 std::vector<float> forces_float;
                 for(auto &force : forces) {forces_float.push_back(static_cast<float>(force));}
 
@@ -244,7 +245,7 @@ class VelocityConverter : public rclcpp::Node
         this->declare_parameter<double>("convergence_time",0.5);
         convergence_time = this->get_parameter("convergence_time").as_double();
         this->declare_parameter<double>("kp", 4.0*convergence_time);
-        this->declare_parameter<double>("kd",1.0*convergence_time);
+        this->declare_parameter<double>("kd",2.0*convergence_time);
         mass_prop = new Drone();
         velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",2,velocity_callback);
         pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);

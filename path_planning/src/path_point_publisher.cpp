@@ -6,7 +6,7 @@
 #include <iostream>
 #include <list>
 
-#define MIN_DIST 0.1
+#define MIN_DIST 0.25
 
 class PathPointPublisher : public rclcpp::Node
 {
@@ -64,7 +64,7 @@ class PathPointPublisher : public rclcpp::Node
 
             pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);
             points_sub = this->create_subscription<geometry_msgs::msg::PoseArray>("/path_points",2,points_callback);
-            point_pub = this->create_publisher<geometry_msgs::msg::PointStamped>("/clicked_point",2);
+            point_pub = this->create_publisher<geometry_msgs::msg::PointStamped>("/current_point",2);
 
         }
 };

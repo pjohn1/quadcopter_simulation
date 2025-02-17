@@ -63,8 +63,8 @@ private:
                 pitch = std::fmod(pitch + wy*dt, 2*PI);
                 yaw = std::fmod(yaw + wz*dt, 2*PI);
             }
-            // printf("Physics sim pitch: %.2f\n",pitch);
             // std::cout<<"physics sim called"<<std::endl;
+            std::cout<<"x: "<<x<<" vx: "<<vx<<" y: "<<y<<" vy: "<<vy<<std::endl;
 
             last_time = this->get_clock()->now();
             geometry_msgs::msg::TransformStamped transform;

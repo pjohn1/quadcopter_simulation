@@ -34,7 +34,7 @@ class ForcePubSub : public rclcpp::Node
         rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr getPublisher(){ return publisher_; }
         ForcePubSub() : Node("force_pub_sub")
         {
-            auto voltage_callback = [this](std_msgs::msg::Float32MultiArray msg) -> void
+            auto forces_callback = [this](std_msgs::msg::Float32MultiArray msg) -> void
             {
                 const double d = mass_prop->distance_to_motor; //distance from center to rotor
                 const double mass = mass_prop->mass;
@@ -87,7 +87,7 @@ class ForcePubSub : public rclcpp::Node
                     double roll_angle = -std::atan2(Rbn(1,2),Rbn(2,2));
 
                     // std::cout<<"Roll angle: "<<roll_angle<<std::endl;
-                    // std::cout<<"pitch: "<<pitch_angle<<" roll: "<<roll_angle<<std::endl;
+                    std::cout<<"pitch: "<<pitch_angle<<" roll: "<<roll_angle<<std::endl;
 
                     Eigen::Matrix<double,3,1> Fb;
                     Fb << 0,0,Fz;
@@ -112,7 +112,7 @@ class ForcePubSub : public rclcpp::Node
                     //convert double vector to float
                     //could be done more efficiently but tbh i already wrote the code
                     for( auto &val : double_vals) { msg_data.push_back(static_cast<float>(val));}
-
+                    std::cout<<"Publishing velocities: "<<vx<<" "<<vy<<" "<<vz<<" "<<std::endl;
                     std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
                     msg_pub.data = msg_data;
                     publisher_->publish(msg_pub);
@@ -133,7 +133,7 @@ class ForcePubSub : public rclcpp::Node
                 }
             };
             Rbn << 1,0,0,0,1,0,0,0,1; //initialize Rbn to identity matrix
-            subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("voltage_input",2,voltage_callback);
+            subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("voltage_input",2,forces_callback);
             publisher_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quadcopter/forces",2);
         }
 

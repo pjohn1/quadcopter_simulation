@@ -41,13 +41,13 @@ class AStar
             while(!q.empty())
             {
                 std::shared_ptr<PathNode> curr_node = q.top();
-                std::cout<<"current: "<<curr_node->f_score<<std::endl;
+                // std::cout<<"current: "<<curr_node->f_score<<std::endl;
                 q.pop();
 
                 std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors(curr_node->pose,points,resolution,initial_pose);        
                 for (Eigen::RowVector3d neighbor : neighbors) //neighbor is a row vector
                 {
-                    std::cout<<"node: "<<neighbor<<std::endl;
+                    // std::cout<<"node: "<<neighbor<<std::endl;
                 
                     double dist_from_start = (neighbor-initial_pose).norm();
                     double dist_from_goal = (goal_pose-neighbor).norm();

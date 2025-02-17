@@ -1,6 +1,6 @@
 import numpy as np
 
-res = 0.5
+res = 1.0
 max_height = 12.0
 x_bounds = (-14.2,13.8)
 y_bounds = (-10.7,19.6)
