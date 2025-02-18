@@ -1,5 +1,5 @@
 import numpy as np
-pcd_file = "scan3.pcd"
+pcd_file = "city.pcd"
 sf = 4
 res= 0.5
 
@@ -10,7 +10,7 @@ for line in open(pcd_file,'r').readlines():
         ls = line.split(' ')
         float(ls[0])
         p = sf*np.array([ls[0],ls[1],ls[2][:-1]]).astype(float)
-        if p[2] > 12:
+        if p[2] > 25:
             continue
 
         p = np.round(p/res) * res
@@ -24,5 +24,5 @@ for line in open(pcd_file,'r').readlines():
         lines += line
         continue
 
-with open("scan3_parsed.pcd",'w') as f:
+with open("city_parsed.pcd",'w') as f:
     f.write(lines)

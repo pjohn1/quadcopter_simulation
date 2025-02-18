@@ -6,7 +6,7 @@
 #include <iostream>
 #include <list>
 
-#define MIN_DIST 0.25
+#define MIN_DIST 0.5
 
 class PathPointPublisher : public rclcpp::Node
 {

@@ -7,7 +7,7 @@
         <visual>
             <inertial>
                 <mass value="1.0"/>
-                <origin xyz="0 0 0"/>
+                <origin xyz="-1 2.65 1.22"/>
                 <inertia ixx="0.1" ixy="0.0" ixz="0.0" iyy="0.1" iyz="0.0" izz="0.1"/>
             </inertial>
             <geometry>
@@ -20,7 +20,7 @@
     <joint name="world_joint" type="prismatic">
         <parent link="map"/>
         <child link="base_link"/>
-        <origin xyz="0 0 1"/>
+        <origin xyz="-1 2.65 1.22"/>
         <axis xyz="1 1 1"/> <!-- Motion along the Z-axis -->
         <limit lower="0" upper="10" effort="10" velocity="1"/>
     </joint>

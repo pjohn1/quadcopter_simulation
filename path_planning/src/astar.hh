@@ -9,17 +9,20 @@
 class AStar
 {
     private:
-        const Eigen::MatrixXd points;
+        Eigen::MatrixXd points;
         const Eigen::Matrix<double,1,3> initial_pose;
         const Eigen::Matrix<double,1,3> goal_pose;
         const double resolution;
         std::list<PathNode> node_objects;
+        KDTreeEigenMatrixAdaptor<double> kdtree;
 
     public:
 
-        AStar (const Eigen::RowVector3d initial, const Eigen::RowVector3d goal, Eigen::MatrixXd pts, double res)
-         :  points(pts),initial_pose(initial),goal_pose(goal), resolution(res)
-        {}
+        AStar (const Eigen::RowVector3d initial, const Eigen::RowVector3d goal, Eigen::MatrixXd pts, 
+            double res, KDTreeEigenMatrixAdaptor<double>& tree)
+         :  points(pts),initial_pose(initial),goal_pose(goal), resolution(res), kdtree(tree)
+        {
+        }
 
         struct Comparator
         {
@@ -38,17 +41,17 @@ class AStar
             std::vector<PathNode> path;
             bool goal_reached = false;
 
+            // GetNeighbors *neighbor_struct = new GetNeighbors(&points);
+
             while(!q.empty())
             {
                 std::shared_ptr<PathNode> curr_node = q.top();
                 // std::cout<<"current: "<<curr_node->f_score<<std::endl;
                 q.pop();
 
-                std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors(curr_node->pose,points,resolution,initial_pose);        
+                std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors_butbetter(kdtree,curr_node->pose,resolution,initial_pose,points);        
                 for (Eigen::RowVector3d neighbor : neighbors) //neighbor is a row vector
                 {
-                    // std::cout<<"node: "<<neighbor<<std::endl;
-                
                     double dist_from_start = (neighbor-initial_pose).norm();
                     double dist_from_goal = (goal_pose-neighbor).norm();
                     double dist_from_neighbor = (neighbor-curr_node->pose).norm();

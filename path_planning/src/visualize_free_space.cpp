@@ -26,7 +26,7 @@ class FreeSpaceVisualizer : public rclcpp::Node
                 {
                     geometry_msgs::msg::Point p = geometry_msgs::msg::Point();
                     p.x = x;p.y=y;p.z=z;
-                    if (count > 10 && count%10==0) {v.push_back(p);}
+                    if (count > 100 && count%100==0) {v.push_back(p);}
                     count++;
                 }
                 file.close();

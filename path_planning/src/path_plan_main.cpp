@@ -9,6 +9,7 @@
 #include <iostream>
 #include "astar.hh"
 
+#define NUM_POINTS 1085169
 #define RES 1.0
 
 class PathPlanner : public rclcpp::Node
@@ -25,9 +26,21 @@ class PathPlanner : public rclcpp::Node
         bool initialized = false;
         Eigen::Matrix<double,1,3> goal;
 
+        KDTreeEigenMatrixAdaptor<double> *kdtree;
+
         double x,y,z; //current_position
 
     public:
+
+        Eigen::RowVector3d get_closest(Eigen::MatrixXd points, Eigen::RowVector3d loc)
+        {
+            int rows = points.rows();
+            Eigen::MatrixXd point_dist = (points.rowwise() - loc).rowwise().norm();
+            int min_row,min_col;
+            double min_value = point_dist.minCoeff(&min_row,&min_col);
+            // find closest grid point to where the goal pose is set
+            return points.row(min_row);
+        }
 
         PathPlanner() : Node("path_planner")
         {
@@ -44,21 +57,18 @@ class PathPlanner : public rclcpp::Node
                     Eigen::Matrix<double,1,3> start(x,y,z);
                     goal << msg.point.x,msg.point.y,msg.point.z;
                     Eigen::Matrix<double,1,3> original_goal = goal;
-                    int rows = points.rows();
-                    Eigen::MatrixXd point_dist = (points.rowwise() - goal).rowwise().norm();
-                    int min_row,min_col;
-                    double min_value = point_dist.minCoeff(&min_row,&min_col);
-                    // find closest grid point to where the goal pose is set
-                    goal = points.row(min_row);
+                    goal = get_closest(points,goal);
                     std::cout<<"goal: "<<goal<<std::endl;
 
 
                     double dist_value = RES; // all neighbors are at a max sqrt(3)*res distance away
 
                     // bfs = new BFS(start,goal,points,dist_value);
-                    astar = new AStar(start,goal,points,dist_value);
+                    astar = new AStar(start,goal,points,dist_value,*kdtree);
                     std::cout<<"Finding path. . ."<<std::endl;
+                    double t1 = this->get_clock()->now().seconds();
                     std::vector<PathNode> path = astar->search();
+                    std::cout<<"Found path in (s): "<<this->get_clock()->now().seconds() - t1<<std::endl;
                     path.push_back(PathNode(original_goal,std::make_shared<PathNode>(path.back()),1e20));
                     //add original goal so we end up there
                     std::cout<<"Got path!"<<std::endl;
@@ -117,7 +127,7 @@ class PathPlanner : public rclcpp::Node
             std::cout<<"Got grid"<<std::endl;
             double x,y,z;
             int current_row = 0;
-            points = Eigen::MatrixXd(11088,3);
+            points = Eigen::MatrixXd(NUM_POINTS,3);
             if (file.is_open()) {
                 while(file >> x >> y >> z)
                 {
@@ -133,6 +143,8 @@ class PathPlanner : public rclcpp::Node
                 std::cout<<"File not opening :("<<std::endl;
             }
             std::cout<<"Done parsing grid!"<<std::endl;
+            kdtree = new KDTreeEigenMatrixAdaptor<double>(points);
+            std::cout<<"Created KDTree!"<<std::endl;
             initialized = true;
 
         }

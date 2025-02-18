@@ -1,14 +1,14 @@
 import numpy as np
 
 res = 1.0
-max_height = 12.0
-x_bounds = (-14.2,13.8)
-y_bounds = (-10.7,19.6)
+max_height = 25.0
+x_bounds = (-1000,1000)
+y_bounds = (-1000,1000)
 # x_bounds = (-res,res)
 # y_bounds = (-res,res)
 # max_height = 2.0
 
-with open('/mnt/c/Desktop/quadcopter_simulation/quad_model/meshes/scan3_parsed.pcd','r') as f:
+with open('/mnt/c/Desktop/quadcopter_simulation/quad_model/meshes/city.pcd','r') as f:
     pcd_lines = f.readlines()
 
 count=0

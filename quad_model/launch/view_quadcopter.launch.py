@@ -12,7 +12,7 @@ def generate_launch_description():
 
     urdf_quad = get_package_share_directory('quad_model')+'/urdf/quadcopter.urdf'
     urdf_map = get_package_share_directory('quad_model')+'/urdf/map.urdf'
-    pcd_file = get_package_share_directory('quad_model')+'/meshes/scan3_parsed.pcd'
+    pcd_file = get_package_share_directory('quad_model')+'/meshes/city.pcd'
     params = get_package_share_directory('quad_model')+"/launch/params.yaml"
 
     with open(urdf_quad,'r') as quad_urdf:

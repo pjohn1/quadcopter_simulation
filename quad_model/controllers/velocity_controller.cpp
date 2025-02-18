@@ -53,6 +53,11 @@ class VelocityConverter : public rclcpp::Node
 
         double derror_wx=0.0;
         double derror=0.0;
+        
+        double ierror_wx = 0.0;
+        double ierror=0.0;
+        double if_ = 0.0;
+        double if_x = 0.0;
 
         double dt;
         double last_time;
@@ -124,6 +129,7 @@ class VelocityConverter : public rclcpp::Node
 
                 //vx controller
                 const double kp = this->get_parameter("kp").as_double();
+                const double ki = this->get_parameter("ki").as_double();
                 const double kd = this->get_parameter("kd").as_double();
                 double vx_error = desired_vx - vx;
                 // std::cout<<"vx error: "<<vx_error<<std::endl;
@@ -150,18 +156,22 @@ class VelocityConverter : public rclcpp::Node
                 if (last_w_error != 0.0) //ensure last_error has been initialized
                 {
                     derror = (error - last_w_error)/dt;
+                    ierror = (error - last_w_error)*dt;
                 }
                 last_w_error = error;
 
                 double required_torque = mass_prop->inertia_tensor(1,1)*error/convergence_time;
                 // required torque to reach desired angular velocity in convergence time
                 double correction_torque = mass_prop->inertia_tensor(1,1)*derror/convergence_time;
+                double summed_torque = mass_prop->inertia_tensor(1,1)*ierror/convergence_time;
 
                 double f = required_torque/(4*mass_prop->distance_to_motor);
                 //divide by 4 because we add to necessary rotors and subtract from unnecessary rotors
                 //ie if f=+4, we add +1 to back rotors and subtract 1 from front so (2) - (-2) = 4
                 double df = correction_torque/(4*mass_prop->distance_to_motor);
-                double f_new = kp*f + kd*df;
+                if_ += summed_torque/(4*mass_prop->distance_to_motor);
+
+                double f_new = kp*f + ki*if_ + kd*df;
                 
                 if (error > 0.0)
                 {
@@ -196,15 +206,18 @@ class VelocityConverter : public rclcpp::Node
                 if (last_wx_error != 0.0)
                 {
                     derror_wx = (error_wx - last_wx_error)/dt;
+                    ierror_wx = (error_wx - last_wx_error)*dt;
                 }
                 last_wx_error = error_wx;
 
                 double required_torque_wx = mass_prop->inertia_tensor(0,0)*error_wx/convergence_time;
                 double correction_torque_wx = mass_prop->inertia_tensor(0,0)*derror_wx/convergence_time;
+                double summed_torque_wx = mass_prop->inertia_tensor(0,0)*ierror_wx/convergence_time;
 
                 double f_x = required_torque_wx/(4*mass_prop->distance_to_motor);
                 double df_x = correction_torque_wx/(4*mass_prop->distance_to_motor);
-                double f_new_x = kp*f_x + kd*df_x;
+                if_x += summed_torque_wx/(4*mass_prop->distance_to_motor);
+                double f_new_x = kp*f_x + ki*if_x + kd*df_x;
                 
                 if (error_wx > 0.0)
                 {
