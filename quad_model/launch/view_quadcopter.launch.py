@@ -1,27 +1,26 @@
 from launch import LaunchDescription
 from launch.actions import GroupAction, TimerAction
-from launch_ros.actions import Node, PushRosNamespace
+from launch_ros.actions import Node, PushRosNamespace, SetParameter
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
+import os
 
 def generate_launch_description():
 
     urdf_quad = get_package_share_directory('quad_model')+'/urdf/quadcopter.urdf'
     urdf_map = get_package_share_directory('quad_model')+'/urdf/map.urdf'
     pcd_file = get_package_share_directory('quad_model')+'/meshes/scan3_parsed.pcd'
+    params = get_package_share_directory('quad_model')+"/launch/params.yaml"
 
     with open(urdf_quad,'r') as quad_urdf:
         quad_desc = quad_urdf.read()
 
     with open(urdf_map) as f:
         map_desc = f.read()
-
     return LaunchDescription([
-
-
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
@@ -50,14 +49,16 @@ def generate_launch_description():
             package='quad_model',
             executable='physics_sim',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            output='screen'
+            output='screen',
+            parameters=[params]
         ),
 
         Node(
             package='quad_model',
             executable='controller_node',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            output='screen'
+            output='screen',
+            parameters=[params]
         ),
 
 
@@ -65,14 +66,16 @@ def generate_launch_description():
             package='quad_model',
             executable='velocity_controller',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            output='screen'
+            output='screen',
+            parameters=[params]
         ),
 
         Node(
             package='quad_model',
             executable='physics_node',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            output='screen'
+            output='screen',
+            parameters=[params]
         ),
 
         TimerAction(

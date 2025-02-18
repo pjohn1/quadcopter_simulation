@@ -73,7 +73,7 @@ class VelocityConverter : public rclcpp::Node
             
             if (!initialized)
             {
-                last_time = this->get_clock()->now().seconds();
+                dt = this->get_parameter("update_rate").as_double();
             }
             initialized=true;
         };
@@ -96,7 +96,7 @@ class VelocityConverter : public rclcpp::Node
 
                 convergence_time = this->get_parameter("convergence_time").as_double();
 
-                dt = this->get_clock()->now().seconds() - last_time;
+                // dt = this->get_clock()->now().seconds() - last_time;
                 vx = (x_new-x)/dt;vy=(y_new-y)/dt;vz=(z_new-z)/dt;
                 x=x_new;y=y_new;z=z_new;
                 Eigen::Matrix<double,1,3> pose(x,y,z);
@@ -230,7 +230,7 @@ class VelocityConverter : public rclcpp::Node
                     }
                 }
 
-                std::cout<<"Forces: "<<forces[0]<<" "<<forces[1]<<" "<<forces[2]<<" "<<forces[3]<<std::endl;
+                // std::cout<<"Forces: "<<forces[0]<<" "<<forces[1]<<" "<<forces[2]<<" "<<forces[3]<<std::endl;
                 std::vector<float> forces_float;
                 for(auto &force : forces) {forces_float.push_back(static_cast<float>(force));}
 
@@ -244,7 +244,9 @@ class VelocityConverter : public rclcpp::Node
 
         this->declare_parameter<double>("convergence_time",0.5);
         convergence_time = this->get_parameter("convergence_time").as_double();
+        this->declare_parameter<double>("update_rate",0.0);
         this->declare_parameter<double>("kp", 4.0*convergence_time);
+        this->declare_parameter<double>("ki", .33*convergence_time);
         this->declare_parameter<double>("kd",2.0*convergence_time);
         mass_prop = new Drone();
         velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",2,velocity_callback);

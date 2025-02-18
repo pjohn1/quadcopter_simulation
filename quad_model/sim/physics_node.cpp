@@ -16,11 +16,12 @@ class ForcePubSub : public rclcpp::Node
         //Initialize mass properties class
         Drone *mass_prop = new Drone();
 
-        double last_time=0.0;
+        rclcpp::Time last_time;
 
         Eigen::Matrix3d inertia_tensor;
         double mass;
         double dt;
+        double update_rate;
 
         Eigen::Matrix<double,3,3> Rbn;
         double wx,wy,wz=0.0;
@@ -56,88 +57,74 @@ class ForcePubSub : public rclcpp::Node
                 float Tz = (forces[0] + forces[2] - forces[1] - forces[3]); //yaw (TL + BR) - (TR + BL)
                 /**************************/
 
-                if (last_time != 0.0)
+                /* Calculating attitude using first-order Rodrigues rotation formula*/
+                /* https://www.roboticsbook.org/S72_drone_actions.html#drone-kinematics */
+
+                // dt = (now - last_time).seconds();
+                // last_time = now;            
+                update_rate = this->get_parameter("update_rate").as_double();        
+                dt = update_rate;
+
+                if (dt < 2*update_rate && dt > 0.0)
                 {
-                    /* Calculating attitude using first-order Rodrigues rotation formula*/
-                    /* https://www.roboticsbook.org/S72_drone_actions.html#drone-kinematics */
 
-                    double update_rate = 1.0/100;
-                    dt = this->get_clock()->now().seconds() - last_time;
-                    last_time = this->get_clock()->now().seconds();
+                    Eigen::Matrix<double,3,1> torques;
+                    torques << Tx,Ty,Tz;
+                    // std::cout<<"Torques: "<<torques<<std::endl;
 
-                    if (dt < 2*update_rate)
-                    {
+                    //use T = I*alpha = I * w/dt
+                    Eigen::Matrix<double,3,1> angular_velocity = (inertia_tensor.inverse() * torques) * dt;
+                    wx+=angular_velocity[0];wy+=angular_velocity[1];wz+=angular_velocity[2];
+                    Eigen::Matrix<double,1,3> w(wx,wy,wz);
+                    // std::cout<<"angular velocities: "<< w << std::endl;
 
-                        Eigen::Matrix<double,3,1> torques;
-                        torques << Tx,Ty,Tz;
-                        // std::cout<<"Torques: "<<torques<<std::endl;
+                    // first-order Rodrigues rotation
+                    Eigen::Matrix<double,3,3> Rbn_next;
+                    // std::cout<<"dt: "<<dt<<std::endl;
+                    Rbn_next << 1, -wz*dt, wy*dt,
+                                wz*dt, 1, -wx*dt,
+                                -wy*dt, wx*dt, 1;
+                    Rbn = Rbn * Rbn_next; //attitude matrix
+                    //Rbn is an SO(3) matrix representing the x,y,z unit vectors after rotation
 
-                        //use T = I*alpha = I * w/dt
-                        Eigen::Matrix<double,3,1> angular_velocity = (inertia_tensor.inverse() * torques) * dt;
-                        wx+=angular_velocity[0];wy+=angular_velocity[1];wz+=angular_velocity[2];
-                        Eigen::Matrix<double,1,3> w(wx,wy,wz);
-                        // std::cout<<"angular velocities: "<< w << std::endl;
+                    double yaw_angle = std::atan2(Rbn(1,0),Rbn(0,0));
+                    double pitch_angle = std::atan2(-Rbn(2,0),std::sqrt(std::pow(Rbn(2,1),2) + std::pow(Rbn(2,2),2) ));
+                    double roll_angle = -std::fmod(std::atan2(Rbn(1,2),Rbn(2,2)),M_PI);
 
-                        // first-order Rodrigues rotation
-                        Eigen::Matrix<double,3,3> Rbn_next;
-                        std::cout<<"dt: "<<dt<<std::endl;
-                        Rbn_next << 1, -wz*dt, wy*dt,
-                                    wz*dt, 1, -wx*dt,
-                                    -wy*dt, wx*dt, 1;
-                        Rbn = Rbn * Rbn_next; //attitude matrix
-                        //Rbn is an SO(3) matrix representing the x,y,z unit vectors after rotation
+                    // std::cout<<"Roll angle: "<<roll_angle<<std::endl;
+                    // std::cout<<"pitch: "<<pitch_angle<<" roll: "<<roll_angle<<std::endl;
 
-                        double yaw_angle = std::atan2(Rbn(1,0),Rbn(0,0));
-                        double pitch_angle = std::atan2(-Rbn(2,0),std::sqrt(std::pow(Rbn(2,1),2) + std::pow(Rbn(2,2),2) ));
-                        double roll_angle = -std::atan2(Rbn(1,2),Rbn(2,2));
+                    Eigen::Matrix<double,3,1> Fb;
+                    Fb << 0,0,Fz;
+                    Eigen::Matrix<double,3,1> Fo;
 
-                        // std::cout<<"Roll angle: "<<roll_angle<<std::endl;
-                        std::cout<<"pitch: "<<pitch_angle<<" roll: "<<roll_angle<<std::endl;
+                    double drag = 0;//1/2.0 * mass_prop->cd * 1.225 * .005 * pow(vx,2);
+                    //drag is incredibly small from testing so for now just assume negligible
 
-                        Eigen::Matrix<double,3,1> Fb;
-                        Fb << 0,0,Fz;
-                        Eigen::Matrix<double,3,1> Fo;
+                    Fo << drag,0,mass*g;
+                    //Fg acts in the inertial -z direction (will subtract)
 
-                        double drag = 0;//1/2.0 * mass_prop->cd * 1.225 * .005 * pow(vx,2);
-                        //drag is incredibly small from testing so for now just assume negligible
+                    rotate = new RotationMatrix(roll_angle,pitch_angle,yaw_angle);
+                    //instantiate rotation matrix class with current attitude
+                    R = rotate->R;
 
-                        Fo << drag,0,mass*g;
-                        //Fg acts in the inertial -z direction (will subtract)
+                    Eigen::Matrix<double,3,1> dvn = dt/mass * ( (R*Fb - Fo) );
+                    //inertial change in velocity due to small delta-t
+                    vx+=dvn[0];vy+=dvn[1];vz+=dvn[2];
 
-                        rotate = new RotationMatrix(roll_angle,pitch_angle,yaw_angle);
-                        //instantiate rotation matrix class with current attitude
-                        R = rotate->R;
-
-                        Eigen::Matrix<double,3,1> dvn = dt/mass * ( (R*Fb - Fo) );
-                        //inertial change in velocity due to small delta-t
-                        vx+=dvn[0];vy+=dvn[1];vz+=dvn[2];
-
-                        std::vector<double> double_vals = {vx,vy,vz,wx,wy,wz};
-                        std::vector<float> msg_data;
-                        //convert double vector to float
-                        //could be done more efficiently but tbh i already wrote the code
-                        for( auto &val : double_vals) { msg_data.push_back(static_cast<float>(val));}
-                        std::cout<<"Publishing velocities: "<<vx<<" "<<vy<<" "<<vz<<" "<<std::endl;
-                        std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
-                        msg_pub.data = msg_data;
-                        publisher_->publish(msg_pub);
-                    }
-                    
-                }
-
-                else {
-                    //initialize variables and clock
-                    vz=0.0;
-                    float msg_vz = static_cast<float>(vz);
-                    std::vector<float> msg_data = {0,0,msg_vz,0,0,0};
+                    std::vector<double> double_vals = {vx,vy,vz,wx,wy,wz};
+                    std::vector<float> msg_data;
+                    //convert double vector to float
+                    //could be done more efficiently but tbh i already wrote the code
+                    for( auto &val : double_vals) { msg_data.push_back(static_cast<float>(val));}
+                    // std::cout<<"Publishing velocities: "<<vx<<" "<<vy<<" "<<vz<<" "<<std::endl;
                     std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
                     msg_pub.data = msg_data;
                     publisher_->publish(msg_pub);
-                    last_time = this->get_clock()->now().seconds();
-
                 }
             };
             Rbn << 1,0,0,0,1,0,0,0,1; //initialize Rbn to identity matrix
+            this->declare_parameter<double>("update_rate",0.0);
             subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("voltage_input",2,forces_callback);
             publisher_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quadcopter/forces",2);
         }

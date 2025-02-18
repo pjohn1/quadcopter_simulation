@@ -20,7 +20,7 @@ class ControllerNode : public rclcpp::Node
         Eigen::Matrix<double,1,3> goal_pose;
         double x,y,z = 0.0;
         double last_x,last_y,last_z=0.0;
-        double last_time = 0.0;
+        double update_rate;
         double yaw,pitch,roll=0.0;
         double goal_yaw = 0.0;
         bool initialized = false;
@@ -68,14 +68,11 @@ class ControllerNode : public rclcpp::Node
                     kp = this->get_parameter("kp").as_double();
                     kd = this->get_parameter("kd").as_double();
 
-                    double dt = this->get_clock()->now().seconds() - last_time;
-                    last_time = this->get_clock()->now().seconds();
-
                     double yaw_difference = angle_difference(goal_yaw,yaw);
                     float yaw_control = kp_yaw * static_cast<float>(yaw_difference);
 
                     Eigen::Matrix<double,1,3> error = goal_pose-pose;
-                    Eigen::Matrix<double,1,3> derror = (error-last_error)/dt;
+                    Eigen::Matrix<double,1,3> derror = (error-last_error)/update_rate;
                     last_error = error;
 
                     Eigen::Matrix<double,1,3> control = kp*error + kd*derror;
@@ -94,12 +91,13 @@ class ControllerNode : public rclcpp::Node
                     velocity_pub->publish(vel_msg);
 
                 }
-                last_time = this->get_clock()->now().seconds();
 
             };
-            this->declare_parameter<double>("kp", 0.4);
+            this->declare_parameter<double>("update_rate",0.0);
+            update_rate = this->get_parameter("update_rate").as_double();
+            this->declare_parameter<double>("kp", 60*update_rate);
             //initialize control parameters
-            this->declare_parameter<double>("kd", 0.04);
+            this->declare_parameter<double>("kd", 10*update_rate);
             point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/current_point",2,point_callback);
             pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);
             velocity_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/velocities",2);
