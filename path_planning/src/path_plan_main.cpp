@@ -12,6 +12,7 @@
 
 #define NUM_POINTS 1085169
 #define RES 1.0
+#define HEIGHT_ABOVE 2.0
 
 class PathPlanner : public rclcpp::Node
 {
@@ -41,6 +42,20 @@ class PathPlanner : public rclcpp::Node
             double min_value = point_dist.minCoeff(&min_row,&min_col);
             // find closest grid point to where the goal pose is set
             return points.row(min_row);
+        }
+
+        std::vector<PathNode> shift_points(std::vector<PathNode>& path)
+        {
+            double path_length = ((path.back()).pose - path[0].pose).norm();
+            Eigen::RowVector3d first_node = path[0].pose;
+            for (auto &node : path)
+            {
+                double dist = (node.pose - first_node).norm();
+                double new_z = HEIGHT_ABOVE*std::sin(M_PI*dist/path_length);
+                node.pose[2] += new_z;
+            }
+            return path;
+            
         }
 
         PathPlanner() : Node("path_planner")
@@ -83,6 +98,7 @@ class PathPlanner : public rclcpp::Node
                     //     std::cout<<"degree: "<<degree<<" rsqured: "<<rsquared<<std::endl;
                     //     degree++;
                     // }
+                    path = shift_points(path);
 
 
                     visualization_msgs::msg::MarkerArray markers;

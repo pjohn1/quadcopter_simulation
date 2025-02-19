@@ -156,8 +156,8 @@ class VelocityConverter : public rclcpp::Node
                 if (last_w_error != 0.0) //ensure last_error has been initialized
                 {
                     derror = (error - last_w_error)/dt;
-                    ierror = (error - last_w_error)*dt;
                 }
+                ierror += error*dt;
                 last_w_error = error;
 
                 double required_torque = mass_prop->inertia_tensor(1,1)*error/convergence_time;
@@ -206,8 +206,8 @@ class VelocityConverter : public rclcpp::Node
                 if (last_wx_error != 0.0)
                 {
                     derror_wx = (error_wx - last_wx_error)/dt;
-                    ierror_wx = (error_wx - last_wx_error)*dt;
                 }
+                ierror_wx += error_wx*dt;
                 last_wx_error = error_wx;
 
                 double required_torque_wx = mass_prop->inertia_tensor(0,0)*error_wx/convergence_time;
@@ -218,6 +218,7 @@ class VelocityConverter : public rclcpp::Node
                 double df_x = correction_torque_wx/(4*mass_prop->distance_to_motor);
                 if_x += summed_torque_wx/(4*mass_prop->distance_to_motor);
                 double f_new_x = kp*f_x + ki*if_x + kd*df_x;
+                std::cout<<"P: "<<kp*f_x<<" I: "<<ki*if_x<<" D: "<<kd*df_x<<std::endl;
                 
                 if (error_wx > 0.0)
                 {
@@ -259,7 +260,7 @@ class VelocityConverter : public rclcpp::Node
         convergence_time = this->get_parameter("convergence_time").as_double();
         this->declare_parameter<double>("update_rate",0.0);
         this->declare_parameter<double>("kp", 4.0*convergence_time);
-        this->declare_parameter<double>("ki", .33*convergence_time);
+        this->declare_parameter<double>("ki", 0.0*convergence_time);
         this->declare_parameter<double>("kd",2.0*convergence_time);
         mass_prop = new Drone();
         velocity_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>("/velocities",2,velocity_callback);

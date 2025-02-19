@@ -86,7 +86,10 @@ class ControllerNode : public rclcpp::Node
                     // std::cout<<"P: "<<kp*error<<" I: "<<ki*ierror<<" D: "<<kd*derror<<std::endl;
 
                     std::vector<float> vel_float;
-                    for(auto &vel : control) { vel_float.push_back(static_cast<float>(vel));}
+                    for(auto &vel : control) { 
+                        if (abs(vel) > MAX_VELOCITY) vel = vel/abs(vel) * MAX_VELOCITY;
+                        vel_float.push_back(static_cast<float>(vel));
+                    }
                     vel_float.push_back(yaw_control);
 
                     // std::cout<<"vx: "<< control[0] <<std::endl;
