@@ -27,6 +27,7 @@ class ControllerNode : public rclcpp::Node
         bool goal_updated;
 
         Eigen::Matrix<double,1,3> last_error;
+        Eigen::Matrix<double,1,3> ierror;
 
         double kp_yaw = 0.05;
         double kp,kd,ki;
@@ -48,7 +49,11 @@ class ControllerNode : public rclcpp::Node
                 goal_pose << msg.point.x, msg.point.y, msg.point.z;
                 //initialize goal pose to 0.5m above
                 goal_yaw = std::atan2(msg.point.y,msg.point.x);
-                if (!initialized) last_error << 0.0,0.0,0.0;
+                if (!initialized) 
+                {
+                    last_error << 0.0,0.0,0.0;
+                    ierror << 0.0,0.0,0.0;
+                }
                 // last_error << 0.0,0.0,0.0;
                 initialized = true;
                 goal_updated = false;
@@ -66,6 +71,7 @@ class ControllerNode : public rclcpp::Node
 
                     std::vector<double> velocities = {0.0,0.0,0.0,0.0};
                     kp = this->get_parameter("kp").as_double();
+                    ki = this->get_parameter("ki").as_double();
                     kd = this->get_parameter("kd").as_double();
 
                     double yaw_difference = angle_difference(goal_yaw,yaw);
@@ -73,9 +79,11 @@ class ControllerNode : public rclcpp::Node
 
                     Eigen::Matrix<double,1,3> error = goal_pose-pose;
                     Eigen::Matrix<double,1,3> derror = (error-last_error)/update_rate;
+                    ierror += error*update_rate;
                     last_error = error;
 
-                    Eigen::Matrix<double,1,3> control = kp*error + kd*derror;
+                    Eigen::Matrix<double,1,3> control = kp*error + ki*ierror + kd*derror;
+                    // std::cout<<"P: "<<kp*error<<" I: "<<ki*ierror<<" D: "<<kd*derror<<std::endl;
 
                     std::vector<float> vel_float;
                     for(auto &vel : control) { vel_float.push_back(static_cast<float>(vel));}
@@ -96,8 +104,9 @@ class ControllerNode : public rclcpp::Node
             this->declare_parameter<double>("update_rate",0.0);
             update_rate = this->get_parameter("update_rate").as_double();
             this->declare_parameter<double>("kp", 60*update_rate);
+            this->declare_parameter<double>("ki", 1*update_rate);
             //initialize control parameters
-            this->declare_parameter<double>("kd", 10*update_rate);
+            this->declare_parameter<double>("kd",30*update_rate);
             point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/current_point",2,point_callback);
             pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);
             velocity_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/velocities",2);

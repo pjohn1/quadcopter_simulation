@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include "astar.hh"
+#include "polyfit.hh"
 
 #define NUM_POINTS 1085169
 #define RES 1.0
@@ -71,7 +72,18 @@ class PathPlanner : public rclcpp::Node
                     std::cout<<"Found path in (s): "<<this->get_clock()->now().seconds() - t1<<std::endl;
                     path.push_back(PathNode(original_goal,std::make_shared<PathNode>(path.back()),1e20));
                     //add original goal so we end up there
-                    std::cout<<"Got path!"<<std::endl;
+                    // std::cout<<"Got path! Polyfitting..."<<std::endl;
+                    // int degree = 1;
+                    // double rsquared = 0;
+                    // while (rsquared < 0.8 && degree<6)
+                    // {
+                    //     Eigen::VectorXd coeffs = polyfit2D(path,degree);
+                    //     std::cout<<"coeffs: "<<coeffs<<std::endl;
+                    //     double rsquared = computeFitQuality(coeffs,path,degree);
+                    //     std::cout<<"degree: "<<degree<<" rsqured: "<<rsquared<<std::endl;
+                    //     degree++;
+                    // }
+
 
                     visualization_msgs::msg::MarkerArray markers;
                     geometry_msgs::msg::PoseArray poses;
