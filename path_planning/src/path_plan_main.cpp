@@ -10,7 +10,7 @@
 #include "astar.hh"
 #include "polyfit.hh"
 
-#define NUM_POINTS 1085169
+#define NUM_POINTS 1500235
 #define RES 1.0
 #define HEIGHT_ABOVE 2.0
 
@@ -108,72 +108,78 @@ class PathPlanner : public rclcpp::Node
                     std::cout<<"goal: "<<goal<<std::endl;
 
 
-                    double dist_value = RES; // all neighbors are at a max sqrt(3)*res distance away
+                    double dist_value = RES * sqrt(3.0); // all neighbors are at a max sqrt(3)*res distance away
 
                     // bfs = new BFS(start,goal,points,dist_value);
                     astar = new AStar(start,goal,points,dist_value,*kdtree);
                     std::cout<<"Finding path. . ."<<std::endl;
                     double t1 = this->get_clock()->now().seconds();
                     std::vector<PathNode> path = astar->search();
-                    std::cout<<"Found path in (s): "<<this->get_clock()->now().seconds() - t1<<std::endl;
-                    path.push_back(PathNode(original_goal,std::make_shared<PathNode>(path.back()),1e20));
-                    //add original goal so we end up there
-                    // std::cout<<"Got path! Polyfitting..."<<std::endl;
-                    // int degree = 1;
-                    // double rsquared = 0;
-                    // while (rsquared < 0.8 && degree<6)
-                    // {
-                    //     Eigen::VectorXd coeffs = polyfit2D(path,degree);
-                    //     std::cout<<"coeffs: "<<coeffs<<std::endl;
-                    //     double rsquared = computeFitQuality(coeffs,path,degree);
-                    //     std::cout<<"degree: "<<degree<<" rsqured: "<<rsquared<<std::endl;
-                    //     degree++;
-                    // }
-                    path = shift_points(path);
-
-
-                    visualization_msgs::msg::MarkerArray markers;
-                    geometry_msgs::msg::PoseArray poses;
-                    int c = 0;
-                    for(auto &n : path)
+                    if (!path.empty())
                     {
-                        visualization_msgs::msg::Marker marker;
-                        marker.header.frame_id = "map";
-                        marker.header.stamp = this->get_clock()->now();
-                        marker.id = c;
-                        marker.type = visualization_msgs::msg::Marker::SPHERE;
-                        marker.action = visualization_msgs::msg::Marker::ADD;
+                        std::cout<<"Found path in (s): "<<this->get_clock()->now().seconds() - t1<<std::endl;
+                        path.push_back(PathNode(original_goal,std::make_shared<PathNode>(path.back()),1e20));
+                        //add original goal so we end up there
+                        // std::cout<<"Got path! Polyfitting..."<<std::endl;
+                        // int degree = 1;
+                        // double rsquared = 0;
+                        // while (rsquared < 0.8 && degree<6)
+                        // {
+                        //     Eigen::VectorXd coeffs = polyfit2D(path,degree);
+                        //     std::cout<<"coeffs: "<<coeffs<<std::endl;
+                        //     double rsquared = computeFitQuality(coeffs,path,degree);
+                        //     std::cout<<"degree: "<<degree<<" rsqured: "<<rsquared<<std::endl;
+                        //     degree++;
+                        // }
+                        path = shift_points(path);
 
-                        marker.pose.position.x = n.pose[0];
-                        marker.pose.position.y = n.pose[1];
-                        marker.pose.position.z = n.pose[2];
 
-                        marker.scale.x = 0.1;
-                        marker.scale.y = 0.1;
-                        marker.scale.z = 0.1;
+                        visualization_msgs::msg::MarkerArray markers;
+                        geometry_msgs::msg::PoseArray poses;
+                        int c = 0;
+                        for(auto &n : path)
+                        {
+                            visualization_msgs::msg::Marker marker;
+                            marker.header.frame_id = "map";
+                            marker.header.stamp = this->get_clock()->now();
+                            marker.id = c;
+                            marker.type = visualization_msgs::msg::Marker::SPHERE;
+                            marker.action = visualization_msgs::msg::Marker::ADD;
 
-                        marker.color.r = 0.5;
-                        marker.color.g = 0.0;
-                        marker.color.b = 0.5;
-                        marker.color.a = 1.0;
+                            marker.pose.position.x = n.pose[0];
+                            marker.pose.position.y = n.pose[1];
+                            marker.pose.position.z = n.pose[2];
 
-                        marker.lifetime = rclcpp::Duration::from_seconds(0);
+                            marker.scale.x = 0.1;
+                            marker.scale.y = 0.1;
+                            marker.scale.z = 0.1;
 
-                        markers.markers.push_back(marker);
+                            marker.color.r = 0.5;
+                            marker.color.g = 0.0;
+                            marker.color.b = 0.5;
+                            marker.color.a = 1.0;
 
-                        geometry_msgs::msg::Pose pose;
-                        pose.position.x = n.pose[0];
-                        pose.position.y = n.pose[1];
-                        pose.position.z = n.pose[2];
+                            marker.lifetime = rclcpp::Duration::from_seconds(0);
 
-                        pose.orientation.w = 1.0;
+                            markers.markers.push_back(marker);
 
-                        poses.poses.push_back(pose);
-                        c++;
+                            geometry_msgs::msg::Pose pose;
+                            pose.position.x = n.pose[0];
+                            pose.position.y = n.pose[1];
+                            pose.position.z = n.pose[2];
+
+                            pose.orientation.w = 1.0;
+
+                            poses.poses.push_back(pose);
+                            c++;
+                        }
+
+                        path_pub->publish(poses);
+                        marker_pub->publish(markers);
                     }
-
-                    path_pub->publish(poses);
-                    marker_pub->publish(markers);
+                }
+                else {
+                    std::cout<<"No path found :("<<std::endl;
                 }
             };
 

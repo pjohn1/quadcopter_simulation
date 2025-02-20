@@ -1,12 +1,56 @@
 import numpy as np
 
-res = 1.0
+res = 0.5
 max_height = 25.0
 x_bounds = (-1000,1000)
 y_bounds = (-1000,1000)
 # x_bounds = (-res,res)
 # y_bounds = (-res,res)
 # max_height = 2.0
+min_height = 0.17
+
+OBSTACLES = [
+    (26.1,30.5,-7.1,-2.9,0.1,5.4),
+    (19.3,25.9,-6.42,-3.56,0.1,9.0),
+    (14.9,17.9,-6.34,-4.4,0.1,6.5),
+    (9.9,13.9,-5.57,-3.6,0.1,8.9),
+    (6,7.6,-0.34,2,0.17,1.5),
+    (-0.7,8.5,2,4.3,0.17,2.9),
+    (-1.3,.83,-0.34,2,0.17,1.5),
+    (-9.42,-6.27,-3.45,-1.49,0.1,6.4),
+    (-15.8,-11.7,-2.76,0.3,0.1,9.9),
+    (-21.9,-17.7,-3.9,-1,0.1,7.5),
+    (-19.3,-14.5,2.5,5.6,0.1,4),
+    (-18.7,-13.7,2.5,5.6,0.1,10),
+    (-18,-16,2.5,5.6,0.1,15.2),
+    (-17.2,-16.6,2.5,5.6,0.1,19.5),
+    (-13.3,-2.78,2.02,6.79,0.1,11),
+    (16.5,20.1,4.0,7.65,0.1,10.6),
+    (24.4,30.1,4.0,7.65,0.1,10.6),
+    (23.2,30.3,12.5,19.5,0.1,12.6),
+    (14.8,22.5,12.5,19.5,0.1,12.6),
+    (1.7,7.25,9.8,15.3,0.3,3.8),
+    (-7.54,-1.7,9.47,15.9,0.1,11.2),
+    (-15.8,6.7,10,7.2,0.1,9.2),
+    (-20.1,-10.7,16.8,18.8,0.1,13.4),
+    (-21.8,-14.1,23.8,29.8,0.1,18.5),
+    (-8.2,-2.2,23.5,30,0.1,11.3),
+    (2.57,13,21.9,30.7,0.1,13.5),
+    (17.4,27.7,22.7,29.7,0.1,10.1)
+] # (x_min,x_max,y_min,y_max,z_min,z_max)
+
+def check_coord(coord):
+    return not all(
+        [coord[0] > i[0] and coord[0] < i[1] and coord[1] > i[2] and coord[1] < i[3]
+         and coord[2] > i[4] and coord[2] < i[5] for i in OBSTACLES]
+    )
+
+def check_xy(coord):
+    #returns false if coord is not in an obstacle bound
+    for i in OBSTACLES:
+        if coord[0] >= i[0] and coord[0] <= i[1] and coord[1] >= i[2] and coord[1] <= i[3]:
+            return i
+    return False
 
 with open('/mnt/c/Desktop/quadcopter_simulation/quad_model/meshes/city.pcd','r') as f:
     pcd_lines = f.readlines()
@@ -54,13 +98,25 @@ for x,y,z in coords:
     if ( x > x_bounds[0] and x < x_bounds[1] ) and ( y > y_bounds[0] and y < y_bounds[1]):
         if row > 1000 and row%1000 == 0:
             print(f'{row}/{clen}\n')
-        mask = (coords[:, 0] == x) & (coords[:, 1] == y) & (coords[:,2] != z)
+
+        z_min = z
+        obstacle = check_xy(coord)
+        if obstacle is not False:
+            z_min = obstacle[-1] #start at the top of the obstacle
+
+        if z_min < min_height:
+            z_min = min_height
+
+        mask = (coords[:, 0] == x) & (coords[:, 1] == y) & (coords[:,2] > z_min)
+        #get all z_vals that are above minimum z
         z_vals = coords[mask]
+
         if len(z_vals) == 0:
-            all_zs = np.arange(z,max_height,res)
+            all_zs = np.arange(z_min,max_height,res)
         else:
             z_vals = z_vals[:,2]
-            all_zs = np.arange(z,min(z_vals),res)
+            all_zs = np.arange(z_min,min(z_vals),res)
+            #only go up to the lowest z val above (happens in case of an overhead obstacle)
         
         new_points = np.column_stack((np.full(len(all_zs), x), np.full(len(all_zs), y), all_zs))
         open_space = np.vstack((open_space,new_points))
