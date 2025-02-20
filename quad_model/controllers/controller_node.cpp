@@ -68,6 +68,7 @@ class ControllerNode : public rclcpp::Node
                     double z = static_cast<double>(msg.data[2]);
                     double yaw = static_cast<double>(msg.data[5]);
                     Eigen::Matrix<double,1,3> pose(x,y,z); //iniitialize pose matrix
+                    // std::cout<<pose<<std::endl;
 
                     std::vector<double> velocities = {0.0,0.0,0.0,0.0};
                     kp = this->get_parameter("kp").as_double();

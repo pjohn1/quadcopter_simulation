@@ -28,6 +28,8 @@ class PathPlanner : public rclcpp::Node
         bool initialized = false;
         Eigen::Matrix<double,1,3> goal;
 
+        bool pose_intialized = false;
+
         KDTreeEigenMatrixAdaptor<double> *kdtree;
 
         double x,y,z; //current_position
@@ -64,6 +66,34 @@ class PathPlanner : public rclcpp::Node
             auto pose_callback = [this](const std_msgs::msg::Float32MultiArray &msg) -> void
             {
                 x = msg.data[0];y = msg.data[1];z=msg.data[2];
+
+                if (!pose_intialized) //only do this on first start to ensure x,y,z are set
+                {
+                    std::ifstream file("/mnt/c/Desktop/quadcopter_simulation/path_planning/src/grid.txt");
+                    std::cout<<"Got grid"<<std::endl;
+                    double xf,yf,zf;
+                    int current_row = 0;
+                    points = Eigen::MatrixXd(NUM_POINTS,3);
+                    if (file.is_open()) {
+                        while(file >> xf >> yf >> zf)
+                        {
+                            points(current_row,0) = xf;
+                            points(current_row,1) = yf;
+                            points(current_row,2) = zf;
+        
+                            current_row++;
+                        }
+                        file.close();
+                    }
+                    else {
+                        std::cout<<"File not opening :("<<std::endl;
+                    }
+                    std::cout<<"Done parsing grid!"<<std::endl;
+                    kdtree = new KDTreeEigenMatrixAdaptor<double>(points);
+                    std::cout<<"Created KDTree!"<<std::endl;
+                    initialized = true;
+                    pose_intialized = true;
+                }
             };
 
             auto goal_callback = [this](const geometry_msgs::msg::PointStamped &msg) -> void
@@ -71,6 +101,7 @@ class PathPlanner : public rclcpp::Node
                 if (initialized && goal[0] != msg.point.x && goal[1] != msg.point.y && goal[2] != msg.point.z)
                 {
                     Eigen::Matrix<double,1,3> start(x,y,z);
+                    std::cout<<"start: "<<start<<std::endl;
                     goal << msg.point.x,msg.point.y,msg.point.z;
                     Eigen::Matrix<double,1,3> original_goal = goal;
                     goal = get_closest(points,goal);
@@ -146,34 +177,11 @@ class PathPlanner : public rclcpp::Node
                 }
             };
 
+            pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);
             goal_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/clicked_point",2,goal_callback);
             marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("/path",1);
             path_pub = this->create_publisher<geometry_msgs::msg::PoseArray>("/path_points",1);
-            pose_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>("/quad_pose",2,pose_callback);
 
-            std::ifstream file("/mnt/c/Desktop/quadcopter_simulation/path_planning/src/grid.txt");
-            std::cout<<"Got grid"<<std::endl;
-            double x,y,z;
-            int current_row = 0;
-            points = Eigen::MatrixXd(NUM_POINTS,3);
-            if (file.is_open()) {
-                while(file >> x >> y >> z)
-                {
-                    points(current_row,0) = x;
-                    points(current_row,1) = y;
-                    points(current_row,2) = z;
-
-                    current_row++;
-                }
-                file.close();
-            }
-            else {
-                std::cout<<"File not opening :("<<std::endl;
-            }
-            std::cout<<"Done parsing grid!"<<std::endl;
-            kdtree = new KDTreeEigenMatrixAdaptor<double>(points);
-            std::cout<<"Created KDTree!"<<std::endl;
-            initialized = true;
 
         }
         ~PathPlanner(){

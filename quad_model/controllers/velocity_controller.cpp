@@ -5,6 +5,7 @@
 #include "../headers/drone_properties.hpp"
 #include <iostream>
 #include "../headers/rotation_matrix.hpp"
+#include <optional>
 
 #define MAX_PITCH 15*M_PI/180
 #define MAX_ROLL 15*M_PI/180
@@ -43,6 +44,8 @@ class VelocityConverter : public rclcpp::Node
 
         double desired_vx,desired_vy,desired_vz,desired_yaw_rate; //desired values
         double x,y,z = 0.0;
+        bool pose_set = false;
+
         double vx,vy,vz,yaw_rate = 0.0;
         double yaw,pitch,roll = 0.0;
         double yaw_new,pitch_new,roll_new = 0.0;
@@ -88,7 +91,14 @@ class VelocityConverter : public rclcpp::Node
             //stopped using quaternions because of inconsistent angle wrapping issues
             //ie nonsingular vals (sometimes 0 rad would initialize to PI) causes subtraction issues
             // [x,y,z,roll,pitch,yaw]
-            if (initialized)
+            if (!pose_set)
+            {
+                x = static_cast<double>(msg.data[0]);
+                y = static_cast<double>(msg.data[1]);
+                z = static_cast<double>(msg.data[2]);
+                pose_set = true;
+            }
+            else if (initialized)
             {
                 double x_new = static_cast<double>(msg.data[0]);
                 double y_new = static_cast<double>(msg.data[1]);
@@ -218,7 +228,7 @@ class VelocityConverter : public rclcpp::Node
                 double df_x = correction_torque_wx/(4*mass_prop->distance_to_motor);
                 if_x += summed_torque_wx/(4*mass_prop->distance_to_motor);
                 double f_new_x = kp*f_x + ki*if_x + kd*df_x;
-                std::cout<<"P: "<<kp*f_x<<" I: "<<ki*if_x<<" D: "<<kd*df_x<<std::endl;
+                // std::cout<<"P: "<<kp*f_x<<" I: "<<ki*if_x<<" D: "<<kd*df_x<<std::endl;
                 
                 if (error_wx > 0.0)
                 {

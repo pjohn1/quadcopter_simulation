@@ -121,7 +121,7 @@ def generate_launch_description():
         ),
 
         TimerAction(
-            period=3.0,
+            period=2.0,
             actions=[
                 Node(
                     package='path_planning',
