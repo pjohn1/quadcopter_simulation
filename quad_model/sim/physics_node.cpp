@@ -16,11 +16,12 @@ class ForcePubSub : public rclcpp::Node
         //Initialize mass properties class
         Drone *mass_prop = new Drone();
 
-        double last_time=0.0;
+        rclcpp::Time last_time;
 
         Eigen::Matrix3d inertia_tensor;
         double mass;
         double dt;
+        double update_rate;
 
         Eigen::Matrix<double,3,3> Rbn;
         double wx,wy,wz=0.0;
@@ -34,7 +35,7 @@ class ForcePubSub : public rclcpp::Node
         rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr getPublisher(){ return publisher_; }
         ForcePubSub() : Node("force_pub_sub")
         {
-            auto voltage_callback = [this](std_msgs::msg::Float32MultiArray msg) -> void
+            auto forces_callback = [this](std_msgs::msg::Float32MultiArray msg) -> void
             {
                 const double d = mass_prop->distance_to_motor; //distance from center to rotor
                 const double mass = mass_prop->mass;
@@ -47,7 +48,7 @@ class ForcePubSub : public rclcpp::Node
                 Eigen::ArrayXd voltages = Eigen::Map<Eigen::ArrayXd>(v.data(), v.size());
 
                 Eigen::ArrayXd &forces = voltages;
-                std::cout<<"Incoming forces: "<<forces<<std::endl;
+                // std::cout<<"Incoming forces: "<<forces<<std::endl;
                 
                 /* Body frame forces */
                 float Fz = forces.sum();  //upwards force in body frame is just sum of all the forces;
@@ -56,26 +57,30 @@ class ForcePubSub : public rclcpp::Node
                 float Tz = (forces[0] + forces[2] - forces[1] - forces[3]); //yaw (TL + BR) - (TR + BL)
                 /**************************/
 
-                if (last_time != 0.0)
+                /* Calculating attitude using first-order Rodrigues rotation formula*/
+                /* https://www.roboticsbook.org/S72_drone_actions.html#drone-kinematics */
+
+                // dt = (now - last_time).seconds();
+                // last_time = now;            
+                update_rate = this->get_parameter("update_rate").as_double();        
+                dt = update_rate;
+
+                if (dt < 2*update_rate && dt > 0.0)
                 {
-                    /* Calculating attitude using first-order Rodrigues rotation formula*/
-                    /* https://www.roboticsbook.org/S72_drone_actions.html#drone-kinematics */
-
-                    dt = this->get_clock()->now().seconds() - last_time;
-
 
                     Eigen::Matrix<double,3,1> torques;
                     torques << Tx,Ty,Tz;
-                    std::cout<<"Torques: "<<torques<<std::endl;
+                    // std::cout<<"Torques: "<<torques<<std::endl;
 
                     //use T = I*alpha = I * w/dt
                     Eigen::Matrix<double,3,1> angular_velocity = (inertia_tensor.inverse() * torques) * dt;
                     wx+=angular_velocity[0];wy+=angular_velocity[1];wz+=angular_velocity[2];
                     Eigen::Matrix<double,1,3> w(wx,wy,wz);
-                    std::cout<<"angular velocities: "<< w << std::endl;
+                    // std::cout<<"angular velocities: "<< w << std::endl;
 
                     // first-order Rodrigues rotation
                     Eigen::Matrix<double,3,3> Rbn_next;
+                    // std::cout<<"dt: "<<dt<<std::endl;
                     Rbn_next << 1, -wz*dt, wy*dt,
                                 wz*dt, 1, -wx*dt,
                                 -wy*dt, wx*dt, 1;
@@ -84,7 +89,7 @@ class ForcePubSub : public rclcpp::Node
 
                     double yaw_angle = std::atan2(Rbn(1,0),Rbn(0,0));
                     double pitch_angle = std::atan2(-Rbn(2,0),std::sqrt(std::pow(Rbn(2,1),2) + std::pow(Rbn(2,2),2) ));
-                    double roll_angle = -std::atan2(Rbn(1,2),Rbn(2,2));
+                    double roll_angle = -std::fmod(std::atan2(Rbn(1,2),Rbn(2,2)),M_PI);
 
                     // std::cout<<"Roll angle: "<<roll_angle<<std::endl;
                     // std::cout<<"pitch: "<<pitch_angle<<" roll: "<<roll_angle<<std::endl;
@@ -112,29 +117,16 @@ class ForcePubSub : public rclcpp::Node
                     //convert double vector to float
                     //could be done more efficiently but tbh i already wrote the code
                     for( auto &val : double_vals) { msg_data.push_back(static_cast<float>(val));}
-
+                    // std::cout<<"Publishing velocities: "<<vx<<" "<<vy<<" "<<vz<<" "<<std::endl;
                     std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
                     msg_pub.data = msg_data;
                     publisher_->publish(msg_pub);
-                    last_time = this->get_clock()->now().seconds();
-                    
-                }
-
-                else {
-                    //initialize variables and clock
-                    vz=0.0;
-                    float msg_vz = static_cast<float>(vz);
-                    std::vector<float> msg_data = {0,0,msg_vz,0,0,0};
-                    std_msgs::msg::Float32MultiArray msg_pub = std_msgs::msg::Float32MultiArray();
-                    msg_pub.data = msg_data;
-                    publisher_->publish(msg_pub);
-                    last_time = this->get_clock()->now().seconds();
-
                 }
             };
             Rbn << 1,0,0,0,1,0,0,0,1; //initialize Rbn to identity matrix
-            subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("voltage_input",1,voltage_callback);
-            publisher_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quadcopter/forces",1);
+            this->declare_parameter<double>("update_rate",0.0);
+            subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("voltage_input",2,forces_callback);
+            publisher_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quadcopter/forces",2);
         }
 
         ~ForcePubSub(){

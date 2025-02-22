@@ -1,36 +1,26 @@
 from launch import LaunchDescription
 from launch.actions import GroupAction, TimerAction
-from launch_ros.actions import Node, PushRosNamespace
+from launch_ros.actions import Node, PushRosNamespace, SetParameter
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
+import os
 
 def generate_launch_description():
 
     urdf_quad = get_package_share_directory('quad_model')+'/urdf/quadcopter.urdf'
     urdf_map = get_package_share_directory('quad_model')+'/urdf/map.urdf'
+    pcd_file = get_package_share_directory('quad_model')+'/meshes/city.pcd'
+    params = get_package_share_directory('quad_model')+"/launch/params.yaml"
 
     with open(urdf_quad,'r') as quad_urdf:
         quad_desc = quad_urdf.read()
 
     with open(urdf_map) as f:
         map_desc = f.read()
-
     return LaunchDescription([
-
-        # Launch the robot_state_publisher
-
-        # Map robot_state_publisher
-        DeclareLaunchArgument(
-            'params_file',
-            default_value=PathJoinSubstitution([
-                FindPackageShare('quad_model'), 'params.yaml'
-            ]),
-            description='params.yaml'
-        ),
-
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
@@ -48,19 +38,27 @@ def generate_launch_description():
         ),
 
         Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='quad_transform',
+            arguments=['0', '0', '0', '0', '0', '0', 'map', 'base_link'],
+            output='screen'
+        ),
+
+        Node(
             package='quad_model',
             executable='physics_sim',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            parameters = [LaunchConfiguration('params_file')],
-            output='screen'
+            output='screen',
+            parameters=[params]
         ),
 
         Node(
             package='quad_model',
             executable='controller_node',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            parameters = [LaunchConfiguration('params_file')],
-            output='screen'
+            output='screen',
+            parameters=[params]
         ),
 
 
@@ -68,14 +66,16 @@ def generate_launch_description():
             package='quad_model',
             executable='velocity_controller',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            output='screen'
+            output='screen',
+            parameters=[params]
         ),
 
         Node(
             package='quad_model',
             executable='physics_node',
             arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'map'],
-            output='screen'
+            output='screen',
+            parameters=[params]
         ),
 
         TimerAction(
@@ -105,6 +105,42 @@ def generate_launch_description():
                 ]),
             ],
         ),
+
+        Node(
+            package='pcl_ros',
+            executable='pcd_to_pointcloud',
+            name='pcd_publisher',
+            parameters=[{'file_name': pcd_file}],
+            output='screen'
+        ),
+
+        Node(
+            package='path_planning',
+            executable='remap_pcd',
+            output='screen'
+        ),
+
+        TimerAction(
+            period=2.0,
+            actions=[
+                Node(
+                    package='path_planning',
+                    executable='visualize_free_space',
+                    output='screen'
+                ),
+                Node(
+                    package='path_planning',
+                    executable='path_plan_main',
+                    output='screen'
+                ),
+                Node(
+                    package='path_planning',
+                    executable='path_point_publisher',
+                    output='screen'
+                ),
+            ],
+        ),
+
         # Launch RViz2
         Node(
             package='rviz2',

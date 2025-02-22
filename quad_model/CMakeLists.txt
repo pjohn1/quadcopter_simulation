@@ -26,20 +26,17 @@ find_package(rclcpp REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(gazebo REQUIRED)
+
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
 add_executable(physics_sim sim/physics_sim.cpp)
 target_include_directories(physics_sim PRIVATE ${GAZEBO_INCLUDE_DIRS})
 target_link_libraries(physics_sim ${GAZEBO_LIBRARIES})
 ament_target_dependencies(physics_sim rclcpp geometry_msgs tf2_ros)
-
-# generate_messages(DEPENDENCIES std_msgs geometry_msgs)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
 
 add_executable(physics_node sim/physics_node.cpp)
 ament_target_dependencies(physics_node rclcpp std_msgs geometry_msgs Eigen3)
@@ -50,10 +47,6 @@ ament_target_dependencies(velocity_controller rclcpp std_msgs geometry_msgs Eige
 add_executable(controller_node controllers/controller_node.cpp)
 ament_target_dependencies(controller_node rclcpp std_msgs geometry_msgs Eigen3)
 
-# add_executable(force_pub force_pub.cpp)
-# ament_target_dependencies(force_pub rclcpp geometry_msgs std_msgs Eigen3)
-
-# install(TARGETS force_pub DESTINATION lib/${PROJECT_NAME})
 install(TARGETS physics_node DESTINATION lib/${PROJECT_NAME})
 install(TARGETS physics_sim DESTINATION lib/${PROJECT_NAME})
 install(TARGETS controller_node DESTINATION lib/${PROJECT_NAME})
