@@ -1,13 +1,10 @@
 import numpy as np
 
-res = 0.5
+res = 1.0
+min_height = 0.17
 max_height = 25.0
 x_bounds = (-1000,1000)
 y_bounds = (-1000,1000)
-# x_bounds = (-res,res)
-# y_bounds = (-res,res)
-# max_height = 2.0
-min_height = 0.17
 
 OBSTACLES = [
     (26.1,30.5,-7.1,-2.9,0.1,5.4),
@@ -95,31 +92,32 @@ open_space = np.empty((0,3))
 
 row = 0
 for x,y,z in coords:
-    if ( x > x_bounds[0] and x < x_bounds[1] ) and ( y > y_bounds[0] and y < y_bounds[1]):
-        if row > 1000 and row%1000 == 0:
-            print(f'{row}/{clen}\n')
+    if row > 1000 and row%1000 == 0:
+        print(f'{row}/{clen}\n')
 
-        z_min = z
-        obstacle = check_xy(coord)
-        if obstacle is not False:
-            z_min = obstacle[-1] #start at the top of the obstacle
+    z_min = z
+    coord_check = (x,y,z)
+    obstacle = check_xy(coord_check)
+    if obstacle is not False:
+        z_min = obstacle[-1] #start at the top of the obstacle
 
-        if z_min < min_height:
-            z_min = min_height
+    if z_min < min_height:
+        z_min = min_height
 
-        mask = (coords[:, 0] == x) & (coords[:, 1] == y) & (coords[:,2] > z_min)
-        #get all z_vals that are above minimum z
-        z_vals = coords[mask]
+    mask = (coords[:, 0] == x) & (coords[:, 1] == y) & (coords[:,2] > z_min)
+    #get all z_vals that are above minimum z
+    z_vals = coords[mask]
 
-        if len(z_vals) == 0:
-            all_zs = np.arange(z_min,max_height,res)
-        else:
-            z_vals = z_vals[:,2]
-            all_zs = np.arange(z_min,min(z_vals),res)
-            #only go up to the lowest z val above (happens in case of an overhead obstacle)
-        
-        new_points = np.column_stack((np.full(len(all_zs), x), np.full(len(all_zs), y), all_zs))
-        open_space = np.vstack((open_space,new_points))
+    if len(z_vals) == 0:
+        all_zs = np.arange(z_min,max_height,res)
+    else:
+        z_vals = z_vals[:,2]
+        all_zs = np.arange(z_min,min(z_vals),res)
+        #only go up to the lowest z val above (happens in case of an overhead obstacle)
+    
+    # print(z_min)
+    new_points = np.column_stack((np.full(len(all_zs), x), np.full(len(all_zs), y), all_zs))
+    open_space = np.vstack((open_space,new_points))
     row+=1
 
 

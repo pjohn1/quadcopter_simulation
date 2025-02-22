@@ -10,7 +10,7 @@
 #include "astar.hh"
 #include "polyfit.hh"
 
-#define NUM_POINTS 1500235
+#define NUM_POINTS 894240
 #define RES 1.0
 #define HEIGHT_ABOVE 2.0
 
@@ -177,9 +177,9 @@ class PathPlanner : public rclcpp::Node
                         path_pub->publish(poses);
                         marker_pub->publish(markers);
                     }
-                }
-                else {
-                    std::cout<<"No path found :("<<std::endl;
+                    else {
+                        std::cout<<"No path found :("<<std::endl;
+                    }
                 }
             };
 

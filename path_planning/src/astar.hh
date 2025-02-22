@@ -5,6 +5,8 @@
 #include <queue>
 #include "search_functions.hh"
 #include <list>
+#include <rclcpp/rclcpp.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 class AStar
 {
@@ -15,6 +17,10 @@ class AStar
         const double resolution;
         std::list<PathNode> node_objects;
         KDTreeEigenMatrixAdaptor<double> kdtree;
+        std::shared_ptr<rclcpp::Node> pub_node;
+
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub;
+        int marker_id = 0;
 
     public:
 
@@ -22,6 +28,8 @@ class AStar
             double res, KDTreeEigenMatrixAdaptor<double>& tree)
          :  points(pts),initial_pose(initial),goal_pose(goal), resolution(res), kdtree(tree)
         {
+            pub_node = rclcpp::Node::make_shared("vis_node");
+            marker_pub = pub_node->create_publisher<visualization_msgs::msg::Marker>("/marker_vis",1);
         }
 
         struct Comparator
@@ -32,6 +40,32 @@ class AStar
             }
         };
 
+        void publish_marker(Eigen::RowVector3d point)
+        {
+            visualization_msgs::msg::Marker marker;
+            marker.header.frame_id = "map";
+            marker.header.stamp = pub_node->get_clock()->now();
+            marker.id = marker_id;
+            marker.type = visualization_msgs::msg::Marker::SPHERE;
+            marker.action = visualization_msgs::msg::Marker::ADD;
+
+            marker.pose.position.x = point[0];
+            marker.pose.position.y = point[1];
+            marker.pose.position.z = point[2];
+
+            marker.scale.x = 0.1;
+            marker.scale.y = 0.1;
+            marker.scale.z = 0.1;
+
+            marker.color.r = 0.9;
+            marker.color.g = 1.0;
+            marker.color.b = 0.0;
+            marker.color.a = 1.0;
+
+            marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+            marker_pub->publish(marker);
+        }
 
         std::vector<PathNode> search()
         {
@@ -46,7 +80,8 @@ class AStar
             while(!q.empty())
             {
                 std::shared_ptr<PathNode> curr_node = q.top();
-                // std::cout<<"current: "<<curr_node->f_score<<std::endl;
+                // publish_marker(curr_node->pose);
+                // std::cout<<"current: "<<curr_node->pose<<" fscore: "<<curr_node->f_score<<std::endl;
                 q.pop();
 
                 std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors_butbetter(kdtree,curr_node->pose,resolution,initial_pose,points);        

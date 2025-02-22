@@ -107,8 +107,8 @@ class ControllerNode : public rclcpp::Node
             };
             this->declare_parameter<double>("update_rate",0.0);
             update_rate = this->get_parameter("update_rate").as_double();
-            this->declare_parameter<double>("kp", 60*update_rate);
-            this->declare_parameter<double>("ki", 1*update_rate);
+            this->declare_parameter<double>("kp", 50*update_rate);
+            this->declare_parameter<double>("ki", 0*update_rate);
             //initialize control parameters
             this->declare_parameter<double>("kd",30*update_rate);
             point_sub = this->create_subscription<geometry_msgs::msg::PointStamped>("/current_point",2,point_callback);
