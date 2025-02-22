@@ -1,5 +1,11 @@
-# quadcopter_simulation v1.0
+# quadcopter_simulation v2.0
 Physics &amp; controls simulation of a quadcopter built from scratch using ROS2, RVIZ, and some 3d modeling from an iPhone camera
+
+# New updates
+
+- Added path planning using A* algorithm with a KDTree implementation
+- New map and fixed up the control algorithms to run smoother
+- A bunch of learning from failures...
 
 # Motivation
 
@@ -18,8 +24,7 @@ Generative AI aided in the implementation of:
 # Video of Full Simulation with PD Control
 
 
-https://github.com/user-attachments/assets/ce64003c-4ca9-46bc-88f2-f4172d7cd03e
-
+will insert new video....
 
 (note: currently, there is no obstacle collision as there is no occupancy grid. This, along with obstacle avoidance, will be added in future versions)
 
