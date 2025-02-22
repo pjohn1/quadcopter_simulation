@@ -8,7 +8,6 @@
 #define PI 3.1419
 #define MAX_VELOCITY 2.0
 #define GOAL_EPS 0.1 //within goal if we are within this epsilon
-#define DIST_ABOVE 0.5 //distance above the goal we want to get before descending
 
 class ControllerNode : public rclcpp::Node
 {

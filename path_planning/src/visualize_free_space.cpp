@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <fstream>
 #include <iostream>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 class FreeSpaceVisualizer : public rclcpp::Node
 {
@@ -15,7 +16,7 @@ class FreeSpaceVisualizer : public rclcpp::Node
         FreeSpaceVisualizer() : Node("free_space_visualizer")
         {
             marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("/free_space",1);
-            std::ifstream file("/mnt/c/Desktop/quadcopter_simulation/path_planning/src/grid.txt");
+            std::ifstream file(ament_index_cpp::get_package_share_directory("/path_planning")+"/util/grid.txt");
             std::cout<<"Got grid"<<std::endl;
             // Eigen::Matrix3d matrix(81026,3);
             std::vector<geometry_msgs::msg::Point> v;

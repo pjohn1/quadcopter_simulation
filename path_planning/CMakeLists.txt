@@ -18,6 +18,10 @@ find_package(Eigen3 REQUIRED)
 
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
+install(DIRECTORY util/
+      DESTINATION share/${PROJECT_NAME}/util
+    )
+
 add_executable(remap_pcd src/remap_pcd.cpp)
 ament_target_dependencies(remap_pcd rclcpp sensor_msgs Eigen3)
 
