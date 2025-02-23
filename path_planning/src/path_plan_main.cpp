@@ -75,7 +75,6 @@ class PathPlanner : public rclcpp::Node
                 if (!pose_intialized) //only do this on first start to ensure x,y,z are set
                 {
                     //initialize occupancy grid and KDTree
-                    std::cout<<ament_index_cpp::get_package_share_directory("/path_planning")+"/util/grid.txt"<<std::endl;
                     std::ifstream file(ament_index_cpp::get_package_share_directory("/path_planning")+"/util/grid.txt");
                     std::cout<<"Got grid"<<std::endl;
                     double xf,yf,zf;

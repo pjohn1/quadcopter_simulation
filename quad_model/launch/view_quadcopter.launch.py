@@ -1,7 +1,8 @@
 from launch import LaunchDescription
 from launch.actions import GroupAction, TimerAction
 from launch_ros.actions import Node, PushRosNamespace, SetParameter
-from launch.actions import DeclareLaunchArgument
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import LaunchConfiguration
@@ -21,12 +22,16 @@ def generate_launch_description():
     with open(urdf_map) as f:
         map_desc = f.read()
     return LaunchDescription([
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='map_transformer',
-            arguments=['0', '0', '0', '0', '0', '0', 'map', 'map'],
-            output='screen'
+
+        # Declare Launch Arguments
+        DeclareLaunchArgument("use_sim_time", default_value="true"),
+        
+        # Start Gazebo with the custom world
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(get_package_share_directory("gazebo_ros"), "launch", "gazebo.launch.py")
+            ),
+            launch_arguments={"world": "map.world"}.items(),
         ),
 
         Node(
@@ -101,6 +106,12 @@ def generate_launch_description():
                         parameters=[{'robot_description': quad_desc}],
                         output='screen',
                         arguments=['--ros-args', '--remap', 'robot_description:=/quadcopter/robot_description']
+                    ),
+                    Node(
+                        package="gazebo_ros",
+                        executable="spawn_entity.py",
+                        arguments=["-entity", "robot_state_publisher", "-file", urdf_quad],
+                        output="screen",
                     )
                 ]),
             ],

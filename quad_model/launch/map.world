@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+    <world name="custom_world">
+        <include>
+            <uri>models://sun</uri>
+        </include>
+        <include>
+            <uri>models://ground_plane</uri>
+        </include>
+        <include>
+            <uri>models://my_map</uri>
+        </include>
+    </world>
+</sdf>
