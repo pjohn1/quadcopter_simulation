@@ -8,6 +8,9 @@
 
 #define MIN_DIST 0.5
 
+
+// In the future this might be switched to a constant "lookahead" value and get the point where the path
+// intersects based on the lookahead value for much smoother flight
 class PathPointPublisher : public rclcpp::Node
 {
     private:
@@ -50,6 +53,7 @@ class PathPointPublisher : public rclcpp::Node
 
                     if (!points.empty() && dist < MIN_DIST)
                     {
+                        //once drone has gotten close to current point, switch to next point
                         current_point = points.front();
                         points.pop_front();
                     }

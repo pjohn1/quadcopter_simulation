@@ -1,5 +1,7 @@
 import numpy as np
 
+#this file creates the 3d occupancy grid by tracing upward from each pcd point
+
 res = 1.0
 min_height = 0.17
 max_height = 25.0

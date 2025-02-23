@@ -13,7 +13,7 @@
 
 #define NUM_POINTS 859281
 #define RES 1.0
-#define HEIGHT_ABOVE 2.0
+#define HEIGHT_ABOVE 2.0 //sets the scaled path value to make midpoint of path higher
 
 class PathPlanner : public rclcpp::Node
 {
@@ -25,13 +25,14 @@ class PathPlanner : public rclcpp::Node
 
         // BFS *bfs;
         AStar *astar;
-        Eigen::MatrixXd points;
+        std::vector<std::shared_ptr<PathNode>> points;
+        Eigen::MatrixXd raw_points;
         bool initialized = false;
         Eigen::Matrix<double,1,3> goal;
 
         bool pose_intialized = false;
 
-        KDTreeEigenMatrixAdaptor<double> *kdtree;
+        KDTreePathNodeAdaptor<double> *kdtree;
 
         double x,y,z; //current_position
 
@@ -43,12 +44,15 @@ class PathPlanner : public rclcpp::Node
             Eigen::MatrixXd point_dist = (points.rowwise() - loc).rowwise().norm();
             int min_row,min_col;
             double min_value = point_dist.minCoeff(&min_row,&min_col);
-            // find closest grid point to where the goal pose is set
+            // find closest grid point to where the pose is set
+            // min_value is not used as min_row and min_col is directly changed
             return points.row(min_row);
         }
 
         std::vector<PathNode> shift_points(std::vector<PathNode>& path)
         {
+            //shifts points to make a smoother trajectory for drone flight
+            //currently a sinusoidal trajectory
             double path_length = ((path.back()).pose - path[0].pose).norm();
             Eigen::RowVector3d first_node = path[0].pose;
             for (auto &node : path)
@@ -70,19 +74,21 @@ class PathPlanner : public rclcpp::Node
 
                 if (!pose_intialized) //only do this on first start to ensure x,y,z are set
                 {
+                    //initialize occupancy grid and KDTree
                     std::cout<<ament_index_cpp::get_package_share_directory("/path_planning")+"/util/grid.txt"<<std::endl;
                     std::ifstream file(ament_index_cpp::get_package_share_directory("/path_planning")+"/util/grid.txt");
                     std::cout<<"Got grid"<<std::endl;
                     double xf,yf,zf;
                     int current_row = 0;
-                    points = Eigen::MatrixXd(NUM_POINTS,3);
+                    raw_points = Eigen::MatrixXd(NUM_POINTS,3);
+                    points = std::vector<std::shared_ptr<PathNode>>(NUM_POINTS);
                     if (file.is_open()) {
                         while(file >> xf >> yf >> zf)
                         {
-                            points(current_row,0) = xf;
-                            points(current_row,1) = yf;
-                            points(current_row,2) = zf;
-        
+                            Eigen::RowVector3d pose(xf,yf,zf);
+                            std::shared_ptr<PathNode> node =  std::make_shared<PathNode>(pose);
+                            points[current_row] = node;
+                            raw_points.row(current_row) = pose;
                             current_row++;
                         }
                         file.close();
@@ -91,7 +97,7 @@ class PathPlanner : public rclcpp::Node
                         std::cout<<"File not opening :("<<std::endl;
                     }
                     std::cout<<"Done parsing grid!"<<std::endl;
-                    kdtree = new KDTreeEigenMatrixAdaptor<double>(points);
+                    kdtree = new KDTreePathNodeAdaptor<double>(points);
                     std::cout<<"Created KDTree!"<<std::endl;
                     initialized = true;
                     pose_intialized = true;
@@ -104,24 +110,29 @@ class PathPlanner : public rclcpp::Node
                 {
                     Eigen::Matrix<double,1,3> start(x,y,z);
                     std::cout<<"start: "<<start<<std::endl;
+
                     goal << msg.point.x,msg.point.y,msg.point.z;
                     Eigen::Matrix<double,1,3> original_goal = goal;
-                    goal = get_closest(points,goal);
+                    goal = get_closest(raw_points,goal);
                     std::cout<<"goal: "<<goal<<std::endl;
 
+                    double dist_to_goal = (goal - start).norm();
+
+                    std::shared_ptr<PathNode> start_node = std::make_shared<PathNode>(start,0.0,dist_to_goal);
+                    //create start node to initialize search
 
                     double dist_value = RES * sqrt(3.0); // all neighbors are at a max sqrt(3)*res distance away
+                    //by using root 3, can search diagonal neighbors too
 
-                    // bfs = new BFS(start,goal,points,dist_value);
                     astar = new AStar(start,goal,points,dist_value,*kdtree);
                     std::cout<<"Finding path. . ."<<std::endl;
                     double t1 = this->get_clock()->now().seconds();
-                    std::vector<PathNode> path = astar->search();
+                    std::vector<PathNode> path = astar->search(start_node);
                     if (!path.empty())
                     {
                         std::cout<<"Found path in (s): "<<this->get_clock()->now().seconds() - t1<<std::endl;
-                        path.push_back(PathNode(original_goal,std::make_shared<PathNode>(path.back()),1e20));
-                        //add original goal so we end up there
+                        path.push_back(PathNode(original_goal));
+                        //add original goal so drone ends up there
                         path = shift_points(path);
 
 

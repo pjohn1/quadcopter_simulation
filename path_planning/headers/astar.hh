@@ -11,12 +11,13 @@
 class AStar
 {
     private:
-        Eigen::MatrixXd points;
+        std::vector<std::shared_ptr<PathNode>> points;
         const Eigen::Matrix<double,1,3> initial_pose;
         const Eigen::Matrix<double,1,3> goal_pose;
+
         const double resolution;
-        std::list<PathNode> node_objects;
-        KDTreeEigenMatrixAdaptor<double> kdtree;
+
+        KDTreePathNodeAdaptor<double> kdtree;
         std::shared_ptr<rclcpp::Node> pub_node;
 
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub;
@@ -24,8 +25,8 @@ class AStar
 
     public:
 
-        AStar (const Eigen::RowVector3d initial, const Eigen::RowVector3d goal, Eigen::MatrixXd pts, 
-            double res, KDTreeEigenMatrixAdaptor<double>& tree)
+        AStar (const Eigen::RowVector3d initial, const Eigen::RowVector3d goal, std::vector<std::shared_ptr<PathNode>> pts, 
+            double res, KDTreePathNodeAdaptor<double>& tree)
          :  points(pts),initial_pose(initial),goal_pose(goal), resolution(res), kdtree(tree)
         {
             pub_node = rclcpp::Node::make_shared("vis_node");
@@ -34,6 +35,7 @@ class AStar
 
         struct Comparator
         {
+            //used to sort the priority queue, sort by f_score (cost to node + h(node,goal))
             bool operator()(const std::shared_ptr<PathNode>& p1, const std::shared_ptr<PathNode>& p2) const {
                 if (p1->f_score != p2->f_score) return p1->f_score > p2->f_score;
                 return false;
@@ -67,15 +69,13 @@ class AStar
             marker_pub->publish(marker);
         }
 
-        std::vector<PathNode> search()
+        std::vector<PathNode> search(std::shared_ptr<PathNode> initial_node)
         {
             std::set<PathNode, PathNodeComparator> seen;
             std::priority_queue<std::shared_ptr<PathNode>,std::vector<std::shared_ptr<PathNode>>,AStar::Comparator> q;
-            q.push(std::make_shared<PathNode>(initial_pose,0.0));
+            q.push(initial_node); //initialize q w initial pose
             std::vector<PathNode> path;
             bool goal_reached = false;
-
-            // GetNeighbors *neighbor_struct = new GetNeighbors(&points);
 
             while(!q.empty())
             {
@@ -84,45 +84,41 @@ class AStar
                 // std::cout<<"current: "<<curr_node->pose<<" fscore: "<<curr_node->f_score<<std::endl;
                 q.pop();
 
-                std::set<Eigen::RowVector3d, RowVector3dComparator> neighbors = get_neighbors_butbetter(kdtree,curr_node->pose,resolution,initial_pose,points);        
-                for (Eigen::RowVector3d neighbor : neighbors) //neighbor is a row vector
+                //get top node and check neighbors
+
+                std::vector<std::shared_ptr<PathNode>> neighbors = get_neighbors_butbetter(kdtree,curr_node->pose,resolution,initial_pose);        
+                for (std::shared_ptr<PathNode> neighbor : neighbors)
                 {
-                    double dist_from_start = (neighbor-initial_pose).norm();
-                    double dist_from_goal = (goal_pose-neighbor).norm();
-                    double dist_from_neighbor = (neighbor-curr_node->pose).norm();
+                    Eigen::RowVector3d neighbor_pose = neighbor->pose;
+                    double dist_from_goal = (goal_pose-neighbor_pose).norm();
+                    double dist_from_neighbor = (neighbor_pose-curr_node->pose).norm();
                     double tentative_gscore = curr_node->g_score + dist_from_neighbor;
-
-
-                    std::shared_ptr<PathNode> n = std::make_shared<PathNode>(neighbor,curr_node,dist_from_start,std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-                    node_objects.push_back(*n);
-                    
-                    // auto found_n = seen.find(*n);
-                    // // see if we already have this node
-                    // if (found_n != seen.end())
-                    // {
-                    //     n->updateNode(*found_n);
-                    //     std::cout<<"eneted"<<std::endl;
-                    //     seen.erase(found_n);
-                    //     std::cout<<"left"<<std::endl;
-                    // }
 
                     if ( dist_from_goal < 1e-6)
                     {
                         std::cout<<"Goal found!"<<std::endl;
-                        path = get_path(*n);
+                        neighbor->has_parent = true;
+                        neighbor->parent = curr_node;
+                        path = get_path(*neighbor);
                         std::cout<<"Got Path!"<<std::endl;
                         goal_reached=true;
                         break;
                     }
 
-                    if (seen.find(*n) == seen.end() && tentative_gscore <= n->g_score)
+                    if (tentative_gscore <= neighbor->g_score && seen.find(*neighbor) == seen.end())
                     {
+                        //if cost from current node + h(node, neighbor)
+                        //is less than cost from start node to neighbor node,
+                        //add to q to explore neighbors
 
-                        seen.insert(*n);
-                        n->g_score = tentative_gscore;
-                        n->f_score = n->g_score+dist_from_goal;
+                        neighbor->parent = curr_node;
+                        neighbor->has_parent = true;
+                        neighbor->g_score = tentative_gscore;
+                        neighbor->f_score = neighbor->g_score+dist_from_goal;
+                        //update neighbor node directly 
+                        seen.insert(*neighbor);
 
-                        q.push(n);
+                        q.push(neighbor);
                     }
 
                 }
@@ -131,8 +127,6 @@ class AStar
             return path;
         }
     ~AStar()
-    {
-        for (auto node : node_objects) delete &node;
-    }
+    {}
 
 };

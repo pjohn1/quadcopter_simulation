@@ -1,5 +1,7 @@
 import open3d as o3d
 
+#this file converts stl 3d model to pcd
+
 # Load the mesh
 mesh_path = "/mnt/c/Desktop/quadcopter_simulation/quad_model/meshes/city.stl"
 mesh = o3d.io.read_triangle_mesh(mesh_path)
