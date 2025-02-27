@@ -4,3 +4,6 @@
 /.vscode/*
 /quad_model/.vscode/*
 test.txt
+mpc/acados/*
+mpc/acados/
+mpc/mpc_env/*

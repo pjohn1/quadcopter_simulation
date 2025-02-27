@@ -57,6 +57,15 @@
         </plugin>
     </gazebo>
 
+    <gazebo>
+        <plugin name="tf_broadcaster" filename="libgazebo_ros_p3d.so">
+            <body_name>base_link</body_name>
+            <frame_name>base_link</frame_name>
+            <topic_name>/gazebo/set_model_state</topic_name>
+            <update_rate>50.0</update_rate>
+        </plugin>
+    </gazebo>
+
     <!-- Gazebo Configuration for LiDAR -->
     <gazebo reference="lidar_link">
         <sensor type="ray" name="lidar">

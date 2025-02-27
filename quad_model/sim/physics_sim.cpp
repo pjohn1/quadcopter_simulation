@@ -1,10 +1,13 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <geometry_msgs/msg/transform_stamped.hpp>
+
 #include "../headers/drone_properties.hpp"
+
 #include <Eigen/Dense>
 #include <cmath>
 
@@ -24,7 +27,6 @@ public:
             std::bind(&PhysicsSim::force_callback, this, std::placeholders::_1));
 
         pose_pub = this->create_publisher<std_msgs::msg::Float32MultiArray>("/quad_pose",2);
-        
 
         // TF broadcaster, calculations are done in body frame so need to transform to map frame
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);

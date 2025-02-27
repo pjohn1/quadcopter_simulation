@@ -15,6 +15,7 @@ def generate_launch_description():
     urdf_map = get_package_share_directory('quad_model')+'/urdf/map.urdf'
     pcd_file = get_package_share_directory('quad_model')+'/meshes/city.pcd'
     params = get_package_share_directory('quad_model')+"/launch/params.yaml"
+    map_file = get_package_share_directory('quad_model')+"/launch/map.world"
 
     with open(urdf_quad,'r') as quad_urdf:
         quad_desc = quad_urdf.read()
@@ -26,13 +27,13 @@ def generate_launch_description():
         # Declare Launch Arguments
         DeclareLaunchArgument("use_sim_time", default_value="true"),
         
-        # Start Gazebo with the custom world
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(get_package_share_directory("gazebo_ros"), "launch", "gazebo.launch.py")
-            ),
-            launch_arguments={"world": "map.world"}.items(),
-        ),
+        # # Start Gazebo with the custom world
+        # IncludeLaunchDescription(
+        #     PythonLaunchDescriptionSource(
+        #         os.path.join(get_package_share_directory("gazebo_ros"), "launch", "gazebo.launch.py")
+        #     ),
+        #     launch_arguments={"world": map_file}.items(),
+        # ),
 
         Node(
             package='tf2_ros',
@@ -110,7 +111,7 @@ def generate_launch_description():
                     Node(
                         package="gazebo_ros",
                         executable="spawn_entity.py",
-                        arguments=["-entity", "robot_state_publisher", "-file", urdf_quad],
+                        arguments=["-entity", "quadcopter", "-file", urdf_quad],
                         output="screen",
                     )
                 ]),
