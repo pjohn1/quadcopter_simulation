@@ -101,7 +101,7 @@ class ForcePubSub : public rclcpp::Node
                     double drag = 0;//1/2.0 * mass_prop->cd * 1.225 * .005 * pow(vx,2);
                     //drag is incredibly small from testing so for now just assume negligible
 
-                    Fo << drag,0,mass*g;
+                    Fo << drag,0,0;//mass*g;
                     //Fg acts in the inertial -z direction (will subtract)
 
                     rotate = new RotationMatrix(roll_angle,pitch_angle,yaw_angle);
@@ -111,6 +111,8 @@ class ForcePubSub : public rclcpp::Node
                     Eigen::Matrix<double,3,1> dvn = dt/mass * ( (R*Fb - Fo) );
                     //inertial change in velocity due to small delta-t
                     vx+=dvn[0];vy+=dvn[1];vz+=dvn[2];
+                    vz = 0;
+                    std::cout<<"vx: "<<vx<<std::endl;
 
                     std::vector<double> double_vals = {vx,vy,vz,wx,wy,wz};
                     std::vector<float> msg_data;

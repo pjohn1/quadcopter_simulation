@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(quad_model)
+project(obstacle_avoidance)
 
 set(CMAKE_C_COMPILER_LAUNCHER ccache)
 set(CMAKE_CXX_COMPILER_LAUNCHER ccache)

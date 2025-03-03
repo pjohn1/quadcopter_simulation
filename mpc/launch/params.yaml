@@ -1,0 +1,15 @@
+/physics_sim:
+  ros__parameters:
+    update_rate: 0.05
+
+/force_pub_sub:
+  ros__parameters:
+    update_rate: 0.05
+  
+/mpc:
+  ros__parameters:
+    update_rate: 0.05
+
+/controller:
+  ros__parameters:
+    update_rate: 0.05

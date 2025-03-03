@@ -5,7 +5,9 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-set(ACADOS_PATH "/mnt/c/Desktop/quadcopter_simulation/mpc/acados")
+install(
+	  DIRECTORY launch/
+	    DESTINATION share/mpc/launch)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -14,19 +16,17 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(ament_cmake REQUIRED)
-find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(tf2_ros REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(gazebo REQUIRED)
+find_package(Python3 COMPONENTS Development REQUIRED)
+
+include_directories(${EIGEN3_INCLUDE_DIRS})
 
 add_executable(mpc src/mpc.cpp)
-ament_target_dependencies(mpc rclcpp Eigen3)
+ament_target_dependencies(mpc rclcpp Eigen3 std_msgs Python3 geometry_msgs)
 
-target_link_libraries(mpc 
-    ${ACADOS_PATH}/lib/libacados.so
-)
+target_include_directories(mpc PRIVATE ${Python3_INCLUDE_DIRS})
 
 install(TARGETS mpc DESTINATION lib/${PROJECT_NAME})
 
