@@ -98,4 +98,4 @@ def main(N,X0,goal):
 
 #u is what we are optimizing and X is the output of that optimization
 # main(3,[0,2,0,0],[1,0,0,0])/
-main(3,[0]*8,[0.5]+[0]*7)
+main(1,[0]*8,[0.5]+[0]*7)

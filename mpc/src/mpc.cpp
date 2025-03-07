@@ -81,6 +81,11 @@ std::vector<double> Controller::optimizeControl(int N, const std::vector<double>
     return results;
 }
 
+std::vector<float> add_forces(std::vector<float> &f, double force)
+{
+
+}
+
 class MPC : public rclcpp::Node
 {
     private:
@@ -124,37 +129,67 @@ class MPC : public rclcpp::Node
 
                     std::vector<double> state = {x,vx,pitch,wy};
                     std::vector<double> goal = {x+1.0,0.0,0.0,0.0};
-                    int N = 3;
+                    int N = 1;
 
                     std::vector<double> results = controller->optimizeControl(N,state,goal);
-                    if (results.size() > 0 && results[1] < 30)
+                    if (results.size() > 0 && results[2] < 30)
                     {
-                        double optimized_u = results[0]/drone->distance_to_motor;
-                        std::cout<<"control: "<<optimized_u<<"cost: "<<results[1];
+                        double tx = results[0]/drone->distance_to_motor;
+                        double ty = results[1]/drone->distance_to_motor;
 
                         double Fzb = drone->mass*9.81*cos(roll);
                         
                         std::vector<float> forces = {0.0,0.0,0.0,0.0};
                         
-                            if (optimized_u > 0)
-                            {
-                                forces[2] = static_cast<float>(optimized_u/4);
-                                forces[3] = static_cast<float>(optimized_u/4);
-                            }
-                            else
-                            {
-                                forces[0] = abs(static_cast<float>(optimized_u/2));
-                                forces[1] = abs(static_cast<float>(optimized_u/2));             
-                            }
+                        if (tx > 0)
+                        {
+                            forces[2] += static_cast<float>(tx/4);
+                            forces[3] += static_cast<float>(tx/4);
+                            forces[0] -= static_cast<float>(tx/4);
+                            forces[1] -= static_cast<float>(tx/4);
+                        }
+                        else
+                        {
+                            forces[0] += abs(static_cast<float>(tx/4));
+                            forces[1] += abs(static_cast<float>(tx/4));           
+                            forces[2] -= abs(static_cast<float>(tx/4));
+                            forces[3] -= abs(static_cast<float>(tx/4));      
+                        }
 
-                            // for (auto &force : forces)
-                            // {
-                            //     force += Fzb/4;
-                            // }
+                        if (ty > 0)
+                        {
+                            forces[1] += static_cast<float>(ty/4);
+                            forces[2] += static_cast<float>(ty/4);
+                            forces[0] -= static_cast<float>(ty/4);
+                            forces[3] -= static_cast<float>(ty/4);
+                        }
+                        else {
+                            forces[0] += abs(static_cast<float>(ty/4));
+                            forces[3] += abs(static_cast<float>(ty/4));           
+                            forces[1] -= abs(static_cast<float>(ty/4));
+                            forces[2] -= abs(static_cast<float>(ty/4));   
+                        }
 
-                            std_msgs::msg::Float32MultiArray forces_msg = std_msgs::msg::Float32MultiArray();
-                            forces_msg.data = forces;
-                            control_pub->publish(forces_msg);
+                        for (auto &f : forces)
+                        {
+                            f += Fzb/4;
+                        }
+
+                        Eigen::Matrix<float,1,4> pf(forces[0],forces[1],forces[2],forces[3]);
+                        float min_force = *std::min_element(forces.begin(),forces.end());
+                        float sum = pf.sum();
+                        if (min_force < 1e-6)
+                        {
+                            float scale = sum / ( sum + 4*abs(min_force) ); //sum scale factor
+                            for(auto &force : forces) {
+                                force += abs(min_force);
+                                force *= scale;
+                            }
+                        }
+
+                        std_msgs::msg::Float32MultiArray forces_msg = std_msgs::msg::Float32MultiArray();
+                        forces_msg.data = forces;
+                        control_pub->publish(forces_msg);
                     }
                 }
                 else {
