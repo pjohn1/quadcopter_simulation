@@ -36,9 +36,7 @@ Controller::~Controller() {
     Py_Finalize();
 }
 
-double Controller::optimizeControl(int N, const std::vector<double>& X0, const std::vector<double>& goal) {
-    if (!pFunc) return -1.0;
-
+std::vector<double> Controller::optimizeControl(int N, const std::vector<double>& X0, const std::vector<double>& goal) {
     // Convert C++ variables to Python objects
     PyObject *pyN = PyLong_FromLong(N);
     PyObject *pyX0 = PyList_New(X0.size());
@@ -62,16 +60,25 @@ double Controller::optimizeControl(int N, const std::vector<double>& X0, const s
     Py_XDECREF(args);
 
     // Process result
-    double result = -1.0;
+    std::vector<double> results;
     if (pyResult) {
-        result = PyFloat_AsDouble(pyResult);
+        Py_ssize_t tuple_size = PyTuple_Size(pyResult);
+        for (Py_ssize_t i = 0; i < tuple_size; ++i) {
+            PyObject *item = PyTuple_GetItem(pyResult, i);  // Borrowed reference
+            if (PyFloat_Check(item)) {
+                results.push_back(PyFloat_AsDouble(item));
+            } else {
+                std::vector<double> empty;
+                return empty;
+            }
+        }
         Py_XDECREF(pyResult);
     } else {
         PyErr_Print();
         std::cerr << "Python function call failed." << std::endl;
     }
 
-    return result;
+    return results;
 }
 
 class MPC : public rclcpp::Node
@@ -116,35 +123,39 @@ class MPC : public rclcpp::Node
                     yaw=yaw_new;pitch=pitch_new;roll=roll_new;
 
                     std::vector<double> state = {x,vx,pitch,wy};
-                    std::vector<double> goal = {x+0.1,0.0,0.0,0.0};
-                    int N = 10;
+                    std::vector<double> goal = {x+1.0,0.0,0.0,0.0};
+                    int N = 3;
 
-                    double optimized_u = controller->optimizeControl(N,state,goal) / drone->distance_to_motor;
-                    std::cout<<optimized_u<<std::endl;
-
-                    double Fzb = drone->mass*9.81*cos(roll);
-                    
-                    std::vector<float> forces = {0.0,0.0,0.0,0.0};
-
-                    if (optimized_u > 0)
+                    std::vector<double> results = controller->optimizeControl(N,state,goal);
+                    if (results.size() > 0 && results[1] < 30)
                     {
-                        forces[2] = static_cast<float>(optimized_u/2);
-                        forces[3] = static_cast<float>(optimized_u/2);
-                    }
-                    else
-                    {
-                        forces[0] = abs(static_cast<float>(optimized_u/2));
-                        forces[1] = abs(static_cast<float>(optimized_u/2));             
-                    }
+                        double optimized_u = results[0]/drone->distance_to_motor;
+                        std::cout<<"control: "<<optimized_u<<"cost: "<<results[1];
 
-                    // for (auto &force : forces)
-                    // {
-                    //     force += Fzb/4;
-                    // }
+                        double Fzb = drone->mass*9.81*cos(roll);
+                        
+                        std::vector<float> forces = {0.0,0.0,0.0,0.0};
+                        
+                            if (optimized_u > 0)
+                            {
+                                forces[2] = static_cast<float>(optimized_u/4);
+                                forces[3] = static_cast<float>(optimized_u/4);
+                            }
+                            else
+                            {
+                                forces[0] = abs(static_cast<float>(optimized_u/2));
+                                forces[1] = abs(static_cast<float>(optimized_u/2));             
+                            }
 
-                    std_msgs::msg::Float32MultiArray forces_msg = std_msgs::msg::Float32MultiArray();
-                    forces_msg.data = forces;
-                    control_pub->publish(forces_msg);
+                            // for (auto &force : forces)
+                            // {
+                            //     force += Fzb/4;
+                            // }
+
+                            std_msgs::msg::Float32MultiArray forces_msg = std_msgs::msg::Float32MultiArray();
+                            forces_msg.data = forces;
+                            control_pub->publish(forces_msg);
+                    }
                 }
                 else {
                     x = static_cast<double>(msg.data[0]);

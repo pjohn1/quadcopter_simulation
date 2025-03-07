@@ -10,7 +10,7 @@ public:
     Controller();
     ~Controller();
 
-    double optimizeControl(int N, const std::vector<double>& X0, const std::vector<double>& goal);
+    std::vector<double> optimizeControl(int N, const std::vector<double>& X0, const std::vector<double>& goal);
 
 private:
     PyObject *pModule;  // Python module
