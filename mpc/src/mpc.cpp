@@ -13,7 +13,7 @@ Controller::Controller(){
     PyList_Append(sysPath, PyUnicode_DecodeFSDefault("/mnt/c/Desktop/quadcopter_simulation/mpc/src/"));
 
 
-    PyObject *pName = PyUnicode_DecodeFSDefault("nonlinear_solver");  // Python script name (without .py)
+    PyObject *pName = PyUnicode_DecodeFSDefault("direct_force_control");  // Python script name (without .py)
     pModule = PyImport_Import(pName);
     std::cout<<"Imported module"<<std::endl;
 
@@ -36,11 +36,17 @@ Controller::~Controller() {
     Py_Finalize();
 }
 
+void printVec(const std::vector<double>& v)
+{
+    for (auto vec: v) std::cout<<vec<<std::endl;
+}
+
 std::vector<double> Controller::optimizeControl(int N, const std::vector<double>& X0, const std::vector<double>& goal) {
     // Convert C++ variables to Python objects
-    PyObject *pyN = PyLong_FromLong(N);
+    PyObject *pyN = PyLong_FromLong(static_cast<long>(N));
     PyObject *pyX0 = PyList_New(X0.size());
     PyObject *pyGoal = PyList_New(goal.size());
+    
 
     for (size_t i = 0; i < X0.size(); ++i) {
         PyList_SetItem(pyX0, i, PyFloat_FromDouble(X0[i]));
@@ -64,10 +70,12 @@ std::vector<double> Controller::optimizeControl(int N, const std::vector<double>
     if (pyResult) {
         Py_ssize_t tuple_size = PyTuple_Size(pyResult);
         for (Py_ssize_t i = 0; i < tuple_size; ++i) {
-            PyObject *item = PyTuple_GetItem(pyResult, i);  // Borrowed reference
+            PyObject *item = PyTuple_GetItem
+            (pyResult, i);  // Borrowed reference
             if (PyFloat_Check(item)) {
                 results.push_back(PyFloat_AsDouble(item));
             } else {
+                std::cout<<"bad item"<<std::endl;
                 std::vector<double> empty;
                 return empty;
             }
@@ -77,13 +85,9 @@ std::vector<double> Controller::optimizeControl(int N, const std::vector<double>
         PyErr_Print();
         std::cerr << "Python function call failed." << std::endl;
     }
+    std::cout<<"returning"<<std::endl;
 
     return results;
-}
-
-std::vector<float> add_forces(std::vector<float> &f, double force)
-{
-
 }
 
 class MPC : public rclcpp::Node
@@ -127,65 +131,80 @@ class MPC : public rclcpp::Node
                     wx = (roll_new-roll)/dt;wy=(pitch_new-pitch)/dt;wz=(yaw_new-yaw)/dt;
                     yaw=yaw_new;pitch=pitch_new;roll=roll_new;
 
-                    std::vector<double> state = {x,vx,pitch,wy};
-                    std::vector<double> goal = {x+1.0,0.0,0.0,0.0};
+                    std::vector<double> state = {x,y,roll,pitch,vx,vy,wx,wy};
+                    std::vector<double> goal = {x+1.0,y+0.0,0.0,0.0,0.0,0.0,0.0,0.0};
                     int N = 1;
 
                     std::vector<double> results = controller->optimizeControl(N,state,goal);
-                    if (results.size() > 0 && results[2] < 30)
+                    if (results.size() > 0)
                     {
-                        double tx = results[0]/drone->distance_to_motor;
-                        double ty = results[1]/drone->distance_to_motor;
+                        // std::cout<<"tx:  "<<results[0]<<" ty: "<<results[1]<<" cost: "<<results[2]<<std::endl;
+                        // double tx = results[0]/drone->distance_to_motor;
+                        // double ty = results[1]/drone->distance_to_motor;
 
-                        double Fzb = drone->mass*9.81*cos(roll);
+                        // double Fzb = drone->mass*9.81*cos(roll);
                         
-                        std::vector<float> forces = {0.0,0.0,0.0,0.0};
+                        std::vector<float> forces;
+                        for (auto &res : results) { forces.push_back(static_cast<float>(res/drone->distance_to_motor)); }
                         
-                        if (tx > 0)
-                        {
-                            forces[2] += static_cast<float>(tx/4);
-                            forces[3] += static_cast<float>(tx/4);
-                            forces[0] -= static_cast<float>(tx/4);
-                            forces[1] -= static_cast<float>(tx/4);
-                        }
-                        else
-                        {
-                            forces[0] += abs(static_cast<float>(tx/4));
-                            forces[1] += abs(static_cast<float>(tx/4));           
-                            forces[2] -= abs(static_cast<float>(tx/4));
-                            forces[3] -= abs(static_cast<float>(tx/4));      
-                        }
+                        // if (tx > 0)
+                        // {
+                        //     forces[2] += static_cast<float>(tx/4);
+                        //     forces[3] += static_cast<float>(tx/4);
+                        //     forces[0] -= static_cast<float>(tx/4);
+                        //     forces[1] -= static_cast<float>(tx/4);
+                        // }
+                        // else
+                        // {
+                        //     forces[0] += abs(static_cast<float>(tx/4));
+                        //     forces[1] += abs(static_cast<float>(tx/4));           
+                        //     forces[2] -= abs(static_cast<float>(tx/4));
+                        //     forces[3] -= abs(static_cast<float>(tx/4));      
+                        // }
 
-                        if (ty > 0)
-                        {
-                            forces[1] += static_cast<float>(ty/4);
-                            forces[2] += static_cast<float>(ty/4);
-                            forces[0] -= static_cast<float>(ty/4);
-                            forces[3] -= static_cast<float>(ty/4);
-                        }
-                        else {
-                            forces[0] += abs(static_cast<float>(ty/4));
-                            forces[3] += abs(static_cast<float>(ty/4));           
-                            forces[1] -= abs(static_cast<float>(ty/4));
-                            forces[2] -= abs(static_cast<float>(ty/4));   
-                        }
+                        // if (ty > 0)
+                        // {
+                        //     forces[1] += static_cast<float>(ty/4);
+                        //     forces[2] += static_cast<float>(ty/4);
+                        //     forces[0] -= static_cast<float>(ty/4);
+                        //     forces[3] -= static_cast<float>(ty/4);
+                        // }
+                        // else {
+                        //     forces[0] += abs(static_cast<float>(ty/4));
+                        //     forces[3] += abs(static_cast<float>(ty/4));           
+                        //     forces[1] -= abs(static_cast<float>(ty/4));
+                        //     forces[2] -= abs(static_cast<float>(ty/4));   
+                        // }
 
-                        for (auto &f : forces)
-                        {
-                            f += Fzb/4;
-                        }
+                        // for (auto &f : forces)
+                        // {
+                        //     f += Fzb/4;
+                        // }
 
                         Eigen::Matrix<float,1,4> pf(forces[0],forces[1],forces[2],forces[3]);
-                        float min_force = *std::min_element(forces.begin(),forces.end());
+                        std::cout<<pf<<std::endl;
+                        float min_force = *std::min_element(forces.begin(),forces.end()-1);
                         float sum = pf.sum();
-                        if (min_force < 1e-6)
-                        {
-                            float scale = sum / ( sum + 4*abs(min_force) ); //sum scale factor
-                            for(auto &force : forces) {
-                                force += abs(min_force);
-                                force *= scale;
-                            }
-                        }
+                        std::cout<<min_force<<std::endl;
+                        // if (min_force < 1e-6)
+                        // {
+                        //     if (abs(sum) < 1e-6)
+                        //     {
+                        //         for(auto &force : forces) {
+                        //             force += abs(min_force);
+                        //         }
+
+                        //     }
+                        //     else {
+                        //         float scale = sum / ( sum + 4*abs(min_force) ); //sum scale factor
+                        //         for(auto &force : forces) {
+                        //             force += abs(min_force);
+                        //             force *= scale;
+                        //         }
+                        //     }
+                        // }
+                        Eigen::Matrix<float,1,4> pf2(forces[0],forces[1],forces[2],forces[3]);
+                        std::cout<<pf2<<std::endl;
 
                         std_msgs::msg::Float32MultiArray forces_msg = std_msgs::msg::Float32MultiArray();
                         forces_msg.data = forces;

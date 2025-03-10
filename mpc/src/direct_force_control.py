@@ -25,12 +25,15 @@ def update_state(X,t,*args):
     # print(X,t,args)
     # state is x,vx,pitch,pitch_rate
     # args is u,m,I,Fzb
+    # u is f0,f1,f2,f3
     x,y,roll,pitch,vx,vy,wx,wy = X
-    roll = -roll
-    tx,ty = args[0]
+    f0,f1,f2,f3 = args[0]
     m = args[1]
     Ixx,Iyy = args[2]
     Fz = args[3]
+
+    tx = d * (f1 + f2 - f0 - f3)
+    ty = d * (f2 + f3 - f0 - f1)
 
     Fzn = getRotationMatrix(roll,pitch,0) @ np.array([0,0,Fz]).transpose() #convert body force to inertial frame
 
@@ -43,7 +46,7 @@ def update_state(X,t,*args):
     rolldot = wx
     rolldotdot = tx/Ixx
 
-    return [xdot,xdotdot,ydot,ydotdot,pitchdot,pitchdotdot,rolldot,rolldotdot]
+    return [xdot,ydot,rolldot,pitchdot,xdotdot,ydotdot,rolldotdot,pitchdotdot]
 
 def cost_fn(u,*args):
     # u is an NSxNU matrix representing the control horizon
@@ -61,8 +64,10 @@ def cost_fn(u,*args):
     costv = 0
     for i in range(0,N,NU):
         Fz = (getRotationMatrix(X[3],X[4],0) @ np.array([0,0,m*g]).transpose())[2]
-        X = np.array(odeint(update_state,X,np.linspace(0,dt,num_timesteps),args=(u[i:i+NU],m,(Ixx,Iyy),Fz))[-1])
+        X = np.array(odeint(update_state,X,np.linspace(0,dt,num_timesteps),args=(u[i:i+NU],m,(Ixx,Iyy),Fz)))[-1]
+        # print(X)
         value = np.array(goal-X)
+        # print(value)
         cost += u[i:i+NU] @ R @ u[i:i+NU].transpose() + value @ Q @ value.transpose()
         costu += u[i:i+NU] @ R @ u[i:i+NU].transpose()
         costv += value @ Q @ value.transpose()
@@ -73,34 +78,30 @@ def cost_fn(u,*args):
 
 def main(N,X0,goal):
 
-    global dt,NS,NU,Q,R
-    dt = 0.5
-
+    global dt,NS,NU,Q,R,d
+    dt = .5
+    d = 98/1000
     NS = 8
-    NU = 2
-    # print(repr(N))
-    # print(type(N))
-    # print(X0)
-    # print(goal)
-    # N = np.vectorize(N)
-    # print(repr(N))
+    NU = 4
 
-    Q = np.eye(NS) + np.array([10]*NS).transpose()#np.array([10,1,1,1,10,1,1,1]).transpose() #pose weightsN
-    R = np.eye(NU) + np.array([1e-2]*NU).transpose() #control weights
+    Q = np.eye(NS) * np.array([10,10,1,1,0,0,0,0]).transpose() #pose weightsN
+    # print(Q)
+    R = np.eye(NU) * np.array([1]*NU).transpose() #control weights
 
     u0 = np.array([0.0]*N*NU)
-
-    # u = minimize(cost_fn,u,args=(X0,goal,N))
-    # u = differential_evolution(cost_fn,bounds,args=(X0,goal,N))
-    t1 = time.time()
+    # u0 = np.array([0,0,1.0,1.0])
+    # cost_fn(u0,X0,goal,N)
     u = minimize(cost_fn,u0,args=(X0,goal,N),method='Nelder-Mead')
     print(u.success)
     if u.success:
         return *u.x[0:NU],u.fun
     else:
-        return None,None
+        return None,None,None,None
 
 
 #u is what we are optimizing and X is the output of that optimization
-# main(3,[0,2,0,0],[1,0,0,0])/
-# print(main(1,[0]*8,[1.0]+[0]*7))
+# main(3,[0,2,0,0],[1,0,0,0
+# print(main(3,[0]*8,[1.0]+[0]*7))
+# print(update_state())
+# print(odeint(update_state,X,np.linspace(0,dt,10),args=(u[i:i+NU],m,(0.00679,0.00679),Fz)))
+# print(cost_fn([0.0,0.0,1.0,1.0],))
