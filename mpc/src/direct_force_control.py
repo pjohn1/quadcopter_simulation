@@ -57,7 +57,7 @@ def cost_fn(u,*args):
     g = 9.81
     Ixx = 0.00679
     Iyy = 0.00679
-    num_timesteps = 5
+    num_timesteps = 2
 
     cost = 0
     costu = 0
@@ -79,19 +79,20 @@ def cost_fn(u,*args):
 def main(N,X0,goal):
 
     global dt,NS,NU,Q,R,d
-    dt = .5
+    dt = 0.5
     d = 98/1000
     NS = 8
     NU = 4
 
-    Q = np.eye(NS) * np.array([10,10,1,1,0,0,0,0]).transpose() #pose weightsN
+    Q = np.eye(NS) * np.array([20,20,1,1,10,10,1,1]).transpose() #pose weightsN
     # print(Q)
-    R = np.eye(NU) * np.array([1]*NU).transpose() #control weights
+    R = np.eye(NU) * np.array([1e-2]*NU).transpose() #control weights
 
     u0 = np.array([0.0]*N*NU)
     # u0 = np.array([0,0,1.0,1.0])
     # cost_fn(u0,X0,goal,N)
-    u = minimize(cost_fn,u0,args=(X0,goal,N),method='Nelder-Mead')
+    # u = minimize(cost_fn,u0,args=(X0,goal,N),method='Nelder-Mead')
+    u = minimize(cost_fn,u0,args=(X0,goal,N),method='L-BFGS-B')
     print(u.success)
     if u.success:
         return *u.x[0:NU],u.fun

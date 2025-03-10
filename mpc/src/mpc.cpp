@@ -36,7 +36,7 @@ Controller::~Controller() {
     Py_Finalize();
 }
 
-void printVec(const std::vector<double>& v)
+void printVec(const std::vector<float>& v)
 {
     for (auto vec: v) std::cout<<vec<<std::endl;
 }
@@ -145,7 +145,7 @@ class MPC : public rclcpp::Node
                         // double Fzb = drone->mass*9.81*cos(roll);
                         
                         std::vector<float> forces;
-                        for (auto &res : results) { forces.push_back(static_cast<float>(res/drone->distance_to_motor)); }
+                        for (int i=0;i<4;i++) { std::cout<<"res:"<<results[i]<<std::endl;forces.push_back(static_cast<float>(results[i]/drone->distance_to_motor)); }
                         
                         // if (tx > 0)
                         // {
@@ -181,11 +181,11 @@ class MPC : public rclcpp::Node
                         //     f += Fzb/4;
                         // }
 
-                        Eigen::Matrix<float,1,4> pf(forces[0],forces[1],forces[2],forces[3]);
-                        std::cout<<pf<<std::endl;
-                        float min_force = *std::min_element(forces.begin(),forces.end()-1);
-                        float sum = pf.sum();
-                        std::cout<<min_force<<std::endl;
+                        // Eigen::Matrix<float,1,4> pf(forces[0],forces[1],forces[2],forces[3]);
+                        // std::cout<<pf<<std::endl;
+                        // float min_force = *std::min_element(forces.begin(),forces.end()-1);
+                        // float sum = pf.sum();
+                        // std::cout<<min_force<<std::endl;
                         // if (min_force < 1e-6)
                         // {
                         //     if (abs(sum) < 1e-6)
@@ -203,8 +203,8 @@ class MPC : public rclcpp::Node
                         //         }
                         //     }
                         // }
-                        Eigen::Matrix<float,1,4> pf2(forces[0],forces[1],forces[2],forces[3]);
-                        std::cout<<pf2<<std::endl;
+                        // Eigen::Matrix<float,1,4> pf2(forces[0],forces[1],forces[2],forces[3]);
+                        printVec(forces);
 
                         std_msgs::msg::Float32MultiArray forces_msg = std_msgs::msg::Float32MultiArray();
                         forces_msg.data = forces;

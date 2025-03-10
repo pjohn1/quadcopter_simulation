@@ -65,12 +65,12 @@ class ForcePubSub : public rclcpp::Node
                 update_rate = this->get_parameter("update_rate").as_double();        
                 dt = update_rate;
 
-                if (dt < 2*update_rate && dt > 0.0)
+                if (dt > 0.0)
                 {
 
                     Eigen::Matrix<double,3,1> torques;
                     torques << Tx,Ty,Tz;
-                    // std::cout<<"Torques: "<<torques<<std::endl;
+                    std::cout<<"Torques: "<<torques<<std::endl;
 
                     //use T = I*alpha = I * w/dt
                     Eigen::Matrix<double,3,1> angular_velocity = (inertia_tensor.inverse() * torques) * dt;
